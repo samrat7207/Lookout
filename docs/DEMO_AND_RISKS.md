@@ -27,11 +27,11 @@
 | R2 | Government site slow or down during the demo | Med | High | Fetch timeout of 150 s, retry once, disk cache fallback, then mock |
 | R3 | NSP page format changes | Low | High | The parser is tested against a fixture. If it finds 0 schemes, show raw evidence with the date marked "unparsed". The Watchtower would flag it. |
 | R4 | Agent API takes 4 to 9 minutes or fails | High | Low | Never on the critical path. 7-minute cap, then cancel. It's a bonus character. |
-| R5 | Wallet empty, so Monitor or Agent fail with 402 | Med | Med | Check `GET /v1/wallet` in M3 step 1. Watchtower and Deep Diver stand down gracefully. Scouts use the free tier. |
+| R5 | Wallet empty, so Monitor or Agent fail with 402 | Med | Med | Check `GET /v1/wallet` in Stage 3 step 1. Watchtower and Deep Diver stand down gracefully. Scouts use the free tier. |
 | R6 | MahaDBT SchemeData URLs are opaque, so name→URL mapping is hard | Med | Med | Get the html format of the landing page for anchor text. Fallback: fetch a fixed shortlist of OBC/SC/ST pages discovered in recon. |
 | R7 | Rate limit (Search 30/min) during repeated rehearsals | Low | Low | Cache. Only about 3 searches per run. |
-| R8 | API key leaks to the browser or git | Low | Critical | Server-only client, `.env` gitignored, a grep check in the M1 acceptance |
-| R9 | 3D scope creep | High | Med | 5 buildings plus one cuttable district, primitives only, a design freeze at the end of M2 |
+| R8 | API key leaks to the browser or git | Low | Critical | Server-only client, `.env` gitignored, a grep check in the Stage 3 acceptance (passing as of the current code) |
+| R9 | 3D scope creep | High | Med | 5 buildings plus one cuttable district, primitives only, a design freeze at the end of Stage 2 (the city itself is frozen at the end of Stage 1) |
 | R10 | The deadline passes (31 Oct) before judging | Low | Med | The hackathon is 24 to 25 Oct, so we are fine. The countdown logic uses `today` from the event (the recording keeps its own date). |
 | R11 | The scheme matching looks wrong to a judge | Med | Med | Show "why it matches" (the keywords) on every item. Show the eligibility evidence line. |
 
@@ -39,4 +39,4 @@
 1. LIVE run
 2. LIVE run, served from cache (`cached` badge)
 3. MOCK: golden run at 1.5×
-4. A screen recording of the golden run (record one after M3)
+4. A screen recording of the golden run (record one in Stage 6)

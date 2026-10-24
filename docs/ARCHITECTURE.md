@@ -1,60 +1,71 @@
 # Architecture
 
-## 1. Repo layout (planned)
+## 1. Repo layout
+
+✅ marks the items that exist now. `S1` to `S6` marks the stage (MILESTONES) that builds each of the rest.
 
 ```
 HACKIIITD/
 ├─ README.md
 ├─ docs/                      # these planning docs
-├─ .gitignore                 # node_modules, .env, dist, recordings/*.tmp
+├─ .gitignore                 ✅ .env, node_modules, dist, server/.cache, recordings/* (except fake + golden)
 ├─ server/
-│  ├─ package.json            # express, dotenv, cors (dev only); Node 24 has fetch built in
-│  ├─ .env.example            # TINYFISH_API_KEY=, PORT=8787, MONITOR_ID=, PUBLIC_WEBHOOK_BASE=, OPPORTUNITIES=on
+│  ├─ package.json            ✅ express only; Node 24 has fetch and --env-file built in
+│  ├─ .env.example            ✅ TINYFISH_API_KEY=, PORT=8787, MONITOR_ID=, PUBLIC_WEBHOOK_BASE=, OPPORTUNITIES=on
+│  ├─ scripts/                ✅ capture.js (refresh fixtures), recordFake.js (fake-run.jsonl); setupMonitor.js (S5)
+│  ├─ test/                   ✅ node:test suites + fixtures/
 │  └─ src/
-│     ├─ index.js             # express app, routes
-│     ├─ bus.js               # per-run event bus: emit(), subscribe(), history buffer
-│     ├─ sse.js               # SSE helper: headers, heartbeat, replay history on connect
-│     ├─ recorder.js          # appends every event to recordings/<runId>.jsonl
-│     ├─ replay.js            # streams a recording with its original timing (speed multiplier)
-│     ├─ orchestrator.js      # starts agents for a profile, waits, calls ranker
+│     ├─ index.js, app.js     ✅ express app, routes
+│     ├─ bus.js               ✅ per-run event bus: emit(), subscribe(), history buffer
+│     ├─ sse.js               ✅ SSE helper: headers, heartbeat, replay history, Last-Event-ID
+│     ├─ recorder.js          ✅ appends every event to recordings/<runId>.jsonl
+│     ├─ replay.js            ✅ streams a recording with its original timing (speed, gap cap)
+│     ├─ fakeAgents.js        ✅ scripted fake run (+ fake/reconData.js, real recon payloads)
+│     ├─ orchestrator.js      S3: starts live agents for a profile, waits, calls ranker + kits
+│     ├─ sources/registry.js  S3: kept sources only (RECON_FINDINGS §3–4)
 │     ├─ tinyfish/
-│     │  ├─ client.js         # search(), fetch(), agentSse(), monitors.*  (raw REST, X-API-Key)
-│     │  └─ cache.js          # in-memory + disk cache of Fetch/Search results (demo safety)
+│     │  ├─ client.js         ✅ search(), fetchPages(); S5/S6 add monitors.*, agentSse()
+│     │  └─ cache.js          S3: disk cache of Fetch/Search results (demo safety)
 │     ├─ agents/
-│     │  ├─ nspScout.js
-│     │  ├─ mahadbtScout.js
-│     │  ├─ foundationsScout.js # Buddy4Study + Vidyasaarathi (Search to discover, Fetch to read)
-│     │  ├─ oppsScout.js      # hackathons; cuttable via OPPORTUNITIES=off
-│     │  ├─ watchtower.js
-│     │  └─ deepDiver.js      # optional Agent API side quest
+│     │  ├─ nspScout.js       S3
+│     │  ├─ stateScout.js     S3: MahaDBT 1.0 for Maharashtra; honest note for other states
+│     │  ├─ foundationsScout.js  S3: Buddy4Study + Vidyasaarathi (Search to discover, Fetch to read)
+│     │  ├─ oppsScout.js      S5: hackathons; cuttable via OPPORTUNITIES=off
+│     │  ├─ watchtower.js     S5
+│     │  └─ deepDiver.js      S6 (optional Agent API side quest)
 │     ├─ parse/
-│     │  ├─ nsp.js            # All-Scholarships markdown -> [{name, type, openFrom, applyTill, ...}]
-│     │  ├─ mahadbt.js        # SchemeData markdown -> {name, department, eligibility[], benefits, documents[]}
-│     │  ├─ buddy4study.js    # "Deadline Date: DD-Mon-YYYY" blocks
-│     │  ├─ vidyasaarathi.js  # "Valid Upto" table rows
-│     │  └─ opps.js           # Devfolio, MLH, Devpost JSON, HackerEarth JSON, Unstop
+│     │  ├─ nsp.js            ✅ All-Scholarships markdown -> [{name, schemeType, openFrom, applyTill, ...}]
+│     │  ├─ mahadbt.js        S3: SchemeData markdown -> {name, department, eligibility[], documents[]}
+│     │  ├─ buddy4study.js    S3: "Deadline Date: DD-Mon-YYYY" blocks
+│     │  ├─ vidyasaarathi.js  S3: "Valid Upto" table rows
+│     │  └─ opps.js           S5: Devfolio, MLH, Devpost JSON, HackerEarth JSON, Unstop
 │     ├─ kit/
-│     │  └─ buildKit.js       # Opportunity + profile -> ApplicationKit (read-only, never fills sensitive fields)
+│     │  └─ buildKit.js       ✅ Opportunity + profile -> ApplicationKit (assertKitSafe)
 │     └─ rank/
-│        ├─ rules.js          # profile -> keyword rules (APPROACH D4)
-│        └─ ranker.js         # score, filter, sort by deadline (APPROACH D5)
+│        ├─ rules.js          S3: profile -> keyword rules (APPROACH D4)
+│        └─ ranker.js         ✅ score, filter, sort by deadline (APPROACH D5)
 ├─ web/
-│  ├─ package.json            # vite, react, three, @react-three/fiber, @react-three/drei
-│  ├─ vite.config.js          # proxy /api -> http://localhost:8787
+│  ├─ package.json            S1: vite, react, three, @react-three/fiber, @react-three/drei
+│  ├─ vite.config.js          S1; S2 adds the proxy /api -> http://localhost:8787
 │  └─ src/
-│     ├─ main.jsx, App.jsx
-│     ├─ state/useRunStream.js  # EventSource -> reducer -> city state
-│     ├─ state/reducer.js       # pure: (state, event) -> state   <- unit-testable
-│     ├─ ui/ProfileForm.jsx, PlanPanel.jsx, KitDrawer.jsx, ModeToggle.jsx, Countdown.jsx
-│     └─ city/
-│        ├─ City.jsx          # Canvas, lights, ground, camera
-│        ├─ Building.jsx      # box + cone roof + sign
-│        ├─ Character.jsx     # capsule-ish stack of boxes, glow, walk lerp
-│        ├─ SpeechBubble.jsx  # drei <Html> bubble
-│        └─ layout.js         # building positions, paths
+│     ├─ main.jsx, App.jsx, styles.css   S1
+│     ├─ city/                S1: the low-poly city
+│     │  ├─ City.jsx          Canvas, iso camera, controls, lights, stats
+│     │  ├─ layout.js         grid, roads, block contents, landmark positions
+│     │  ├─ batch.js          collector of primitive instances (box, cylinder, cone, ...)
+│     │  ├─ InstancedBatch.jsx  one InstancedMesh per primitive kind, per-instance colour
+│     │  ├─ buildCity.js      roads, markings, filler buildings, windows, rooftops, trees, props
+│     │  ├─ landmarks.js      the 6 landmark designs (procedural)
+│     │  ├─ Traffic.jsx       looping keep-left cars and trucks + parked cars (instanced)
+│     │  ├─ Landmarks.jsx     labels, hover cards, highlight rings
+│     │  └─ Beacon.jsx        Watchtower beacon and beam
+│     ├─ city/Character.jsx, SpeechBubble.jsx   S2
+│     ├─ state/useRunStream.js, reducer.js      S2
+│     └─ ui/ProfileForm.jsx, PlanPanel.jsx, KitDrawer.jsx, Countdown.jsx (S4), ModeToggle.jsx (S6)
 └─ recordings/
-   ├─ demo-golden.jsonl       # committed: the recorded real run used for MOCK MODE
-   └─ *.jsonl                 # other runs (gitignored except golden)
+   ├─ fake-run.jsonl          ✅ committed: generated fake run (npm run fake:record)
+   ├─ demo-golden.jsonl       S6: committed recorded real run used for MOCK MODE
+   └─ *.jsonl                 other runs (gitignored)
 ```
 
 ## 2. Server routes
@@ -87,7 +98,7 @@ agent code ──emit(evt)──▶ bus(runId) ──▶ history[] ──▶ SSE
 
 - `emit()` stamps `seq`, `ts` (ISO) and `t` (ms since run start).
 - **Replay:** read the JSONL, and for each event wait `(evt.t - prev.t) / speed` before emitting it into a **new** runId's bus. Cap any single gap at 4 s so the dead time of a slow fetch is not replayed in full. Replayed events keep their payloads but get `replay: true`.
-- The golden recording is chosen and committed in Milestone 3. Until then, Milestone 2 uses a hand-written `recordings/fake-run.jsonl` that follows the same schema.
+- The golden recording is chosen and committed in Stage 6, from live runs recorded in Stage 3. Until then, Stages 2 and 4 use the generated `recordings/fake-run.jsonl` (`npm run fake:record`), which follows the same schema.
 
 ## 5. TinyFish client (server only)
 

@@ -58,7 +58,7 @@ The top 3 results are home, /Students and /All-Scholarships. The snippets alread
 ### Landing page (`/`), Fetch in about 3.1 s
 - Lists about 45 Post Matric scholarship scheme names grouped by department (Social Justice, Tribal, DHE, DTE, OBC/SEBC/VJNT/SBC Welfare, Minority, ...).
 - With `links: true` it returns about 58 `SchemeData/SchemeData?str=<hex>` URLs. **These are the scheme detail pages.** The `str` tokens look like encrypted IDs, so treat them as opaque and discover them on every run. Do not hardcode them. Cache the last good set.
-- ⚠ The link order seems to follow the menu order, but the mapping from name to URL is not given in the markdown. Option: fetch with `format: "html"` and pair each `<a>` text with its href, or fetch a candidate set and read each title. **Decision for M3: run the landing fetch once in html to build the name→URL map.**
+- ⚠ The link order seems to follow the menu order, but the mapping from name to URL is not given in the markdown. Option: fetch with `format: "html"` and pair each `<a>` text with its href, or fetch a candidate set and read each title. **Decision for Stage 3: run the landing fetch once in html to build the name→URL map.**
 - There are also links to `mahadbt2.maharashtra.gov.in`, `prematric.mahait.org` and others.
 
 ### Scheme page example: "Government of India Post-Matric Scholarship", Fetch in about 2.8 s
@@ -69,7 +69,7 @@ Eligibility example: family income ≤ Rs 2,50,000. SC / Navbouddha. Maharashtra
 ### Important notice (on every page)
 > The MahaDBT 1.0 portal is currently active for acceptance of fresh applications for the Academic Year 2025-26 ... **Fresh and renewal applications for the Academic Year 2026-27 will be accepted only through the MahaDBT 2.0 Portal** (https://mahadbt2.maharashtra.gov.in/)
 
-**What this means for the plan:** MahaDBT items show "Apply on MahaDBT 2.0, deadline not published on scheme page". The Deep Diver (Agent API) goal is to find the AY 2026-27 date on MahaDBT 2.0. **Checked 2026-10-24: `mahadbt2.maharashtra.gov.in` returned `proxy_error` on two attempts.** Retry once in M3. Until then, MahaDBT 2.0 is a link and a note, not a data source. The 1.0 landing page still fetches fine (3.6 s, about 45 Post Matric scheme names).
+**What this means for the plan:** MahaDBT items show "Apply on MahaDBT 2.0, deadline not published on scheme page". The Deep Diver (Agent API) goal is to find the AY 2026-27 date on MahaDBT 2.0. **Checked 2026-10-24: `mahadbt2.maharashtra.gov.in` returned `proxy_error` on two attempts.** Retry once in Stage 3. Until then, MahaDBT 2.0 is a link and a note, not a data source. The 1.0 landing page still fetches fine (3.6 s, about 45 Post Matric scheme names).
 
 ## 3. Other scholarship sources (scope expansion, 2026-10-24)
 
@@ -96,7 +96,7 @@ Persona-relevant examples seen: HDFC Parivartan ECSS (Buddy4Study, **Deadline 31
 | UP `scholarship.up.gov.in` | Search returned 0 results, Fetch `proxy_error` ×2 | Unreachable |
 | West Bengal SVMCM `svmcm.wbhed.gov.in` | `proxy_error` | Unreachable |
 | Telangana ePASS `telanganaepass.cgg.gov.in` | Fetch OK, 1 KB, **no dates** | No content with dates |
-| MahaDBT 2.0 `mahadbt2.maharashtra.gov.in` | `proxy_error` ×2 | Unreachable (retry in M3) |
+| MahaDBT 2.0 `mahadbt2.maharashtra.gov.in` | `proxy_error` ×2 | Unreachable (retry in Stage 3) |
 | Reliance Foundation `scholarships.reliancefoundation.org/UG_Scholarship` | Fetch OK, full content, but **no date on the page**: "Applications for the 2026-27 scholarships are now closed" | No date. It is also first-year only, and closed (5 Oct 2026 per snippets). |
 | Buddy4Study listing `/scholarships/engineering` | Fetch OK, footer only | Empty. Use detail pages (kept above). |
 | Vidyasaarathi listing `/Vidyasaarathi/scholarship` | "Currently No Schemes are Available" | Empty. Use scheme pages (kept above). |
@@ -114,6 +114,6 @@ Persona-relevant examples seen: HDFC Parivartan ECSS (Buddy4Study, **Deadline 31
 ## Takeaways
 1. Search and Fetch alone are enough for a working, real demo. The Agent API is a bonus.
 2. The NSP parser is the highest-value code. Write it against a saved copy of this markdown, with unit tests.
-3. Save the raw markdown from these pages to `server/test/fixtures/` in M1. This keeps the parsers testable offline.
+3. Save the raw markdown from these pages to `server/test/fixtures/` (done; `npm run capture` refreshes them). This keeps the parsers testable offline.
 4. Private listings and hackathon boards: **listing pages are often empty shells, but detail pages and JSON endpoints work.** Discover with Search, then read with Fetch.
 5. Every state portal we tried except MahaDBT 1.0 failed. NSP plus private listings is the honest coverage for students outside Maharashtra.

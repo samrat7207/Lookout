@@ -4,9 +4,9 @@ Each question has a proposed default. If nobody objects, we go with the default.
 
 | # | Question | Default |
 |---|---|---|
-| Q1 | Demo persona? | **Decided:** male, B.Tech Computer Engineering, OBC, Maharashtra, labelled "sample student" in the UI. Matches PM YASASVI (college), PM-USP CSSS, MahaDBT OBC schemes and HDFC Parivartan ECSS. Year of study is not fixed yet. It matters for "first-year only" schemes (e.g. Reliance UG) and for PM-USP renewal. Default: 2nd year. |
-| Q2 | Is a TinyFish API key in hand, and is there wallet balance? (Monitor and Agent use the wallet. Search and Fetch have a free tier.) | Recon on 2026-10-24 ran through the TinyFish MCP connector, not our own key. No `server/.env` exists yet. **Needed before `npm run capture` and M3.** Check the wallet in M3 step 1. |
-| Q3 | Team size and split? | If 2 or more people: one on server (M1, then M3), one on web (M2 can start as soon as EVENT_SCHEMA is frozen, using `fake-run.jsonl`). |
+| Q1 | Demo persona? | **Decided:** male, B.Tech Computer Engineering, OBC, Maharashtra, labelled "sample student" in the UI. Matches PM YASASVI (college), PM-USP CSSS, MahaDBT OBC schemes and HDFC Parivartan ECSS. **Year of study: 2nd year (decided, closed).** So "first-year only" schemes (e.g. Reliance UG) are excluded, and PM-USP CSSS is a renewal case. |
+| Q2 | Is a TinyFish API key in hand, and is there wallet balance? (Monitor and Agent use the wallet. Search and Fetch have a free tier.) | Recon on 2026-10-24 ran through the TinyFish MCP connector, not our own key. No `server/.env` exists yet. **Needed before `npm run capture` and Stage 3.** Check the wallet in Stage 3 step 1. |
+| Q3 | Team size and split? | If 2 or more people: one on web (Stages 1, 2 and 4), one on server (Stages 3 and 5). Stage 1 needs no server, and Stage 2 builds against `fake-run.jsonl`. |
 | Q4 | Public URL for Monitor webhooks (cloudflared or ngrok)? | Optional. We use run-now and our own diff. Add a tunnel only if time allows. |
 | Q5 | Plain JS or TypeScript? | Plain JS (ESM) with JSDoc on the event types, for speed. Switch to TS only if the team prefers it. |
 | Q6 | Category list in the form? | General, OBC, SC, ST, EWS, Minority, plus gender and disability toggles |

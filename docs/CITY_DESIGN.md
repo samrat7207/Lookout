@@ -1,32 +1,38 @@
 # City Design
 
-Rule: **boxes, cones, cylinders, planes. Flat colours. No textures, no models, no external assets.** It should look good because of the palette, soft lighting and motion.
+Rule: **boxes, cones, cylinders, planes. Flat colours. No textures, no models, no external assets.** Every design is original. It should look good because of the palette, soft lighting and motion: cheerful, clean and toy-like.
 
 ## 1. Layout (top view, units = metres)
 
-```
-              Watchtower (0, -8)
-                   ▲
-                   │
- NSP (-8, 0) ◀──── Town Hall (0, 0) ────▶ MahaDBT (8, 0)
-                   │
-              (camera from +z, raised, looking at origin)
-```
-- Ground: a 30×30 plane in grass green, with paths as thin light-grey boxes (0.02 high) from Town Hall to each building.
-- Camera: `OrbitControls` with limited polar angle (no going under the ground), starting at `[0, 14, 16]` with an FOV of about 40. Let auto-rotate run slowly while idle, and stop it once a run starts.
-- Lights: one hemisphere light plus one directional light with soft shadows (shadow map size 1024).
+An isometric diorama: one city block grid on a flat grey base (48×48), shown as a floating tile. There are 3×3 blocks of 11×11, separated by 3 m roads, plus a ring road around the edge.
 
-## 2. Buildings
+```
+            x = -14                  x = 0                 x = +14
+ z = -14  Central Scholarships   Watchtower + park     State Scholarships
+          Hall (NSP)
+ z = 0    Homes (filler)         Town Hall + plaza     Shops (filler)
+ z = +14  Private & Foundation   Park + pond (filler)  Opportunities district
+          Scholarships                                 (3 small buildings)
+```
+- **Roads:** centre lines at x, z = ±7 (inner grid) and ±21 (ring). Asphalt with dashed centre lines, crosswalk stripes at the intersections, and kerbed sidewalks around every block.
+- **Traffic:** cars and trucks loop on the inner and outer rings, **keep-left** (Indian roads), with rounded turns. Parked cars line the spoke roads.
+- **Filler:** apartment blocks, shops with awnings, parks with trees, benches, lamp posts and a pond. Every building gets window grids and rooftop details (AC units, water tanks, solar panels, antennas, stair huts).
+- **Camera:** orthographic isometric view from `[1, 1, 1]`-ish. `OrbitControls` with polar limits (roughly 30° to 65°), zoom limits, and pan clamped to the base. The initial zoom fits the viewport.
+- **Lights:** a hemisphere light plus one warm directional sun with soft PCF shadows (2048 map) covering the base.
+- **Performance:** every repeated primitive (boxes, cylinders, cones, windows, trees, vehicle parts) is drawn with **instanced meshes** that have per-instance colours, which keeps draw calls in the tens. `?stats` shows FPS and draw calls.
 
-| Building | Shape | Colour | Sign |
+## 2. Landmarks
+
+Only NSP is named as a portal in the UI. The others are generic, so the city works for any state and any listing site. Each landmark has an always-on label pill, and hovering shows its name card plus a highlight ring on the ground.
+
+| Landmark | Event `building` ID | Design | Palette |
 |---|---|---|---|
-| **NSP** | wide box 4×3×3 + flat roof slab + a small flag (cone) | navy `#2F4B7C` | "NSP" |
-| **MahaDBT** | box 3.5×2.5×3.5 + pyramid roof (4-sided cone) | saffron `#F28E2B` | "MahaDBT" |
-| **Watchtower** | tall thin box 1.2×6×1.2 + cone top + a sphere "lamp" | stone `#8C8C8C`, lamp `#FFD166` | "Watchtower" |
-| **Foundations** | box 3×2.2×3 + a flat roof + a small dome (sphere half) | teal-green `#59A14F` | "Foundations" |
-| **Town Hall** | box 4×2.5×3 + 4 cylinder columns + triangular pediment | cream `#F4E9D8` | "Town Hall" |
-
-**Opportunities district (cuttable):** at `(0, 8)`, three small booths (box 1.5×1.2×1.5 each, purple `#B07AA1`, with banner planes) under one sign, "Hackathons". It is drawn only when `opps-scout` is in `run.started.agents`. Foundations sits at `(-8, -6)`.
+| **Central Scholarships Hall (NSP)** | `nsp` | Civic hall on a stepped plinth, white-columned portico, pediment and a gold dome | navy `#2F4B7C`, white, gold |
+| **State Scholarships** | `mahadbt` (any state portal) | 3-storey office with a central tower and a terracotta pyramid roof | saffron `#F28E2B` |
+| **Private & Foundation Scholarships** | `foundations` | Two modern glass towers joined by a sky bridge, with a rooftop garden | teal-green `#59A14F`, glass blue |
+| **Watchtower** | `watchtower` | Tall tapered stone tower, balcony ring, glass lantern room, red cone roof, and a pulsing beacon with a rotating beam | stone `#8C8C8C`, beacon `#FFD166` |
+| **Town Hall** | `townhall` | Cream hall with a clock tower and a red roof, on a plaza with a fountain, benches and flower beds. This is where the plan and briefing happen. | cream `#F4E9D8`, red |
+| **Opportunities district** | `opportunities` | Three small buildings: a Hackathon Garage, a Tech Events Arena (dome) and a Meetup Kiosk, with bunting. It is cuttable: with the add-on off it stays as idle scenery. | purple `#B07AA1`, pink, yellow |
 
 Building states (driven by events):
 - `idle`: normal colour
@@ -34,7 +40,7 @@ Building states (driven by events):
 - `error`: brief red tint for 1.5 s
 - Watchtower lamp: steady glow after `watchtower.checked`, and it blinks red/yellow on `watchtower.change`
 
-Signs use drei `<Text>` (the default font is fine) or `<Html>` labels.
+Signs use drei `<Html>` labels (DOM, so there are no font assets).
 
 ## 3. Characters
 

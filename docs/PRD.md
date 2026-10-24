@@ -16,7 +16,7 @@ A Computer Engineering student also has a second stream of deadlines: hackathons
 
 **Primary:** an undergraduate or diploma student in India. For the demo, this is a student in Maharashtra, so NSP (central), MahaDBT (state) and private/foundation listings all apply.
 
-**Demo persona:** male, B.Tech Computer Engineering, OBC, Maharashtra. The UI labels this persona **"sample student"**, with no invented name.
+**Demo persona:** male, B.Tech Computer Engineering, **2nd year**, OBC, Maharashtra. The UI labels this persona **"sample student"**, with no invented name.
 - On NSP he matches PM YASASVI Top Class Education in College (OBC, EBC, DNT) and PM-USP CSSS (merit, renewal). AICTE Swanath (Technical Degree) is listed as conditional, because it is for orphans and wards of armed forces martyrs. AICTE Pragati (girls) is **excluded** for this persona.
 - On MahaDBT he matches the OBC schemes: Post Matric Scholarship to OBC Students, Tuition Fees and Examination Fees to OBC Students, Rajarshri Chhatrapati Shahu Maharaj Fee Reimbursement, and Dr Panjabrao Deshmukh Hostel Maintenance Allowance.
 - On private listings he matches open B.Tech or UG schemes such as HDFC Parivartan ECSS (deadline 31-Oct-2026 on Buddy4Study).
@@ -37,11 +37,13 @@ Enter course, state and category once. Watch a tiny city of TinyFish agents go a
 | P0-4b | Foundations Scout uses TinyFish **Search** (to discover pages) **+ Fetch** (to read them) on the private listings that passed recon: Buddy4Study detail pages and Vidyasaarathi scheme pages (RECON_FINDINGS §3) | The plan shows private/foundation scholarships with the deadline read from the page, and a source URL |
 | P0-5 | Town Hall produces **one dated, sourced plan**. All kinds (scholarship, hackathon, event) are merged into **one list sorted by deadline** (soonest first, "no date published" last). Ineligible and closed items are filtered out. | Each item shows: kind badge, title, source, deadline (or "not published"), days left, why it matches, source URL, and for scholarships a "View Application Kit" button |
 | P0-6 | NSP student last date **31-10-2026** is shown first and loudest | It is the top banner or top-ranked item, with a countdown |
-| P0-7 | 3D city with 5 buildings (NSP, MahaDBT, Foundations, Watchtower, Town Hall) and characters driven by the **real event stream** | Characters move only in response to events, never on fixed timers |
+| P0-7 | Isometric low-poly 3D city with 5 labelled landmarks: **Central Scholarships Hall (NSP)**, **State Scholarships**, **Private & Foundation Scholarships**, **Watchtower** and **Town Hall** (CITY_DESIGN §2). Characters are driven by the **real event stream**. No portal other than NSP is named in the UI. | Characters move only in response to events, never on fixed timers. Hovering a landmark shows its name. |
 | P0-8 | Characters light up and show a speech bubble with what they found | Every `agent.found` event shows a bubble |
 | P0-9 | **MOCK MODE** toggle replays a recorded real run | It works with Wi-Fi off. The visuals are the same as live. |
 | P0-10 | **Application Kit** for each scholarship in the plan: required documents, the form fields with the persona's values prefilled, a step list, the deadline and the source link. **Read-only and prefill-only.** | The kit panel shows the notice "Lookout never submits forms and never asks for, enters or stores passwords, OTPs or Aadhaar numbers." Sensitive fields (Aadhaar, OTP, password, bank account) are listed as "enter this yourself on the official portal" and are never prefilled. |
 | P0-11 | The persona is labelled **"sample student"** wherever it appears in the UI | No invented name appears in the UI |
+
+**Build order.** These requirements are delivered across the 6 stages in MILESTONES: P0-7 city (Stage 1); P0-8 characters and bubbles on the stream (Stage 2); P0-2, P0-3, P0-4 and P0-4b real data (Stage 3); P0-5, P0-6, P0-10 and P0-11 plan, kit and persona UI (Stage 4); P1-1 and P1-6 Watchtower and Opportunities (Stage 5); P0-9 mock mode and the remaining P1s (Stage 6). P0-1 (the form) lands in Stage 4. Until then, Stage 2 uses a "Run (fake)" button.
 
 ## 5. Should-haves (P1)
 

@@ -10,7 +10,7 @@ A low-poly 3D city where each TinyFish web agent is a little character and each 
 
 ## Status
 
-Milestone 1 in progress. See [docs/MILESTONES.md](docs/MILESTONES.md) for the build order.
+Built in 6 stages ([docs/MILESTONES.md](docs/MILESTONES.md)). **Stage 1 (low-poly city, `web/`) is in progress.** The server pieces done so far are the event bus, the SSE stream with `Last-Event-ID`, the JSONL recorder, the scripted fake run, mock replay, the NSP parser, the TinyFish client skeleton, the plan sorter and the kit builder.
 
 ## Docs
 
@@ -23,7 +23,7 @@ Milestone 1 in progress. See [docs/MILESTONES.md](docs/MILESTONES.md) for the bu
 | [docs/TINYFISH_INTEGRATION.md](docs/TINYFISH_INTEGRATION.md) | Request formats checked against docs.tinyfish.ai, limits, and how each API is used |
 | [docs/RECON_FINDINGS.md](docs/RECON_FINDINGS.md) | What the real sources returned on 2026-10-24 (which worked, which failed), and what it means for parsing |
 | [docs/CITY_DESIGN.md](docs/CITY_DESIGN.md) | 3D layout, buildings, characters, animation states, speech bubbles |
-| [docs/MILESTONES.md](docs/MILESTONES.md) | The 3 milestones: tasks, acceptance checks, commit points, time budget |
+| [docs/MILESTONES.md](docs/MILESTONES.md) | The 6 build stages: tasks, what is already done, acceptance checks, commit points, time budget |
 | [docs/DEMO_AND_RISKS.md](docs/DEMO_AND_RISKS.md) | 3-minute demo script, risk register, fallback ladder |
 | [docs/OPEN_QUESTIONS.md](docs/OPEN_QUESTIONS.md) | Decisions still needed from the team |
 
@@ -33,7 +33,17 @@ Milestone 1 in progress. See [docs/MILESTONES.md](docs/MILESTONES.md) for the bu
 - **server/**: Node and Express. Holds `TINYFISH_API_KEY` from `.env`, calls TinyFish, and streams agent events to the browser over SSE. The key never reaches the browser.
 - **recordings/**: JSONL files of real runs. MOCK MODE replays them.
 
-## Run (server, Milestone 1)
+## Run
+
+City (Stage 1, standalone, no backend needed):
+
+```sh
+cd web
+npm install
+npm run dev              # http://localhost:5173  (add ?stats for FPS and draw calls)
+```
+
+Server (event stream, fake run, mock replay):
 
 ```sh
 cd server

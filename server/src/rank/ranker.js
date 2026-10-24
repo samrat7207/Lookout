@@ -64,7 +64,7 @@ function rankWhy(item, rank, prev) {
   return `#${rank}: ${when}${tie}.`;
 }
 
-function toItem(opp, today, kitIds) {
+function toItem(opp, today, kitIds, verification) {
   const daysLeft = opp.deadline ? daysBetween(today, opp.deadline) : null;
   return {
     opportunityId: opp.id,
@@ -79,10 +79,12 @@ function toItem(opp, today, kitIds) {
     why: opp.matchReason,
     amount: opp.amount ?? null,
     sourceUrl: opp.sourceUrl,
+    eventUrl: opp.eventUrl ?? null,
     checkedAt: opp.checkedAt ?? null,
     needsVerification: opp.needsVerification ?? false,
     action: ACTIONS[opp.source] ?? 'Open the source page',
     ...(kitIds.has(opp.id) && { kitId: kitIds.get(opp.id) }),
+    verification: verification.get(opp.id) ?? null, // set by the Verifier; does not affect rank
   };
 }
 
@@ -103,14 +105,22 @@ export function byRank(a, b) {
  *   ruleEvidence?: object, notApplicable?: {title, reason, sourceUrl}[],
  *   sources?: {checked: number, failed: number, lastChecked: string|null, list?: object[]} }} opts
  */
-export function buildPlan(opportunities, { today, headline = null, notes = [], kitIds = new Map(), now = new Date(), ruleEvidence = {}, notApplicable = [], sources = null }) {
-  const all = opportunities.map((o) => toItem(o, today, kitIds));
+export function buildPlan(opportunities, { today, headline = null, notes = [], kitIds = new Map(), now = new Date(), ruleEvidence = {}, notApplicable = [], sources = null, verification = new Map(), profile = null }) {
+  const all = opportunities.map((o) => toItem(o, today, kitIds, verification));
   const items = all.filter((i) => i.daysLeft === null || i.daysLeft >= 0).sort(byRank);
   const missed = all.filter((i) => i.daysLeft !== null && i.daysLeft < 0).sort(byRank);
   items.forEach((item, i) => {
     item.rank = i + 1;
     item.rankWhy = rankWhy(item, item.rank, items[i - 1]);
   });
+  // the same order within each kind, for the Scholarships and Opportunities tabs
+  for (const kind of new Set(items.map((i) => i.kind))) {
+    const own = items.filter((i) => i.kind === kind);
+    own.forEach((item, i) => {
+      item.kindRank = i + 1;
+      item.kindRankWhy = rankWhy(item, i + 1, own[i - 1]);
+    });
+  }
 
   const counts = { scholarship: 0, hackathon: 0, event: 0 };
   for (const i of items) counts[i.kind]++;
@@ -125,6 +135,7 @@ export function buildPlan(opportunities, { today, headline = null, notes = [], k
     counts,
     notes,
     conflicts: findConflicts(items, ruleEvidence),
+    profile, // Profiler output: known facts and unknowns (never guessed)
     sources,
   };
 }

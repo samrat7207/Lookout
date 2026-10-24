@@ -87,7 +87,7 @@ function stubClient({ failSearch } = {}) {
 
 test('live run (stub client): real-shaped plan with sources, last-checked times, conflicts and a quoted rule', async () => {
   const run = createRun();
-  await runLive(run, { client: stubClient(), today: TODAY });
+  await runLive(run, { client: stubClient(), today: TODAY, cacheDir: null });
   run.close();
   const plan = run.history.findLast((e) => e.kind === 'plan.ready').payload;
   assert.equal(plan.headline.date, '2026-10-31');
@@ -108,11 +108,14 @@ test('live run (stub client): real-shaped plan with sources, last-checked times,
   const fee = plan.conflicts.find((c) => c.id === 'csss-vs-state-fee-reimbursement');
   assert.equal(fee.officialRule, undefined, 'no fetched page states it, so no hard rule');
   assert.ok(run.history.some((e) => e.kind === 'kit.ready'));
+  // the Verifier re-checked every item; none was dropped
+  assert.ok(plan.items.every((i) => i.verification && ['verified', 'changed', 'unverified'].includes(i.verification.status)));
+  assert.equal(run.history.filter((e) => e.kind === 'verify.result').length, plan.items.length);
 });
 
 test('live run with a bad key throws before emitting anything', async () => {
   const run = createRun();
-  await assert.rejects(runLive(run, { client: stubClient({ failSearch: { code: 'HTTP_401', message: 'unauthorized', status: 401 } }), today: TODAY }), LiveUnavailableError);
+  await assert.rejects(runLive(run, { client: stubClient({ failSearch: { code: 'HTTP_401', message: 'unauthorized', status: 401 } }), today: TODAY, cacheDir: null }), LiveUnavailableError);
   assert.equal(run.history.length, 0);
 });
 
@@ -129,7 +132,7 @@ async function eventsOf(base, runId) {
 }
 
 test('fallback: live without a working key replays the last recording with a replay badge', async () => {
-  const server = await listen(createApp({ record: false, client: stubClient({ failSearch: { code: 'NETWORK', message: 'offline' } }) }));
+  const server = await listen(createApp({ record: false, cacheDir: null, client: stubClient({ failSearch: { code: 'HTTP_401', message: 'unauthorized', status: 401 } }) }));
   const base = `http://localhost:${server.address().port}`;
   const saved = process.env.TINYFISH_API_KEY;
   try {
@@ -142,7 +145,7 @@ test('fallback: live without a working key replays the last recording with a rep
     const events = await eventsOf(base, runId);
     assert.equal(events[0].kind, 'run.mode');
     assert.equal(events[0].payload.mode, 'replay');
-    assert.match(events[0].payload.fallbackReason, /NETWORK/);
+    assert.match(events[0].payload.fallbackReason, /401/);
     assert.ok(events.every((e) => e.replay === true));
     assert.equal(events.at(-1).kind, 'run.complete');
 
@@ -166,4 +169,18 @@ test('MODE picks the default: explicit value, else live with a key, else replay'
   assert.equal(defaultMode({ MODE: 'mock' }), 'mock');
   assert.equal(defaultMode({ MODE: '', TINYFISH_API_KEY: 'x' }), 'live');
   assert.equal(defaultMode({}), 'replay');
+});
+
+test('Profiler: known facts from the sample student, unknowns never guessed', async () => {
+  const { buildCriteria, UNKNOWN } = await import('../src/profile/profiler.js');
+  const { SAMPLE_STUDENT } = await import('../src/fake/reconData.js');
+  const p = buildCriteria(SAMPLE_STUDENT);
+  assert.equal(p.label, 'sample student');
+  assert.deepEqual(p.criteria, { gender: 'male', course: 'btech', level: 'ug', year: 2, category: 'OBC', state: 'Maharashtra', disability: false });
+  assert.ok(p.known.some((k) => k.field === 'year' && k.value === '2nd year'));
+  for (const f of ['familyIncome', 'capAdmission', 'domicileProof']) {
+    const u = p.unknown.find((x) => x.field === f);
+    assert.equal(u?.value, UNKNOWN, `${f} is unknown, needs your input`);
+  }
+  assert.equal(buildCriteria({ ...SAMPLE_STUDENT, familyIncome: 200000 }).unknown.some((u) => u.field === 'familyIncome'), false);
 });

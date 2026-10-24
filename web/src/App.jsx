@@ -5,6 +5,9 @@ import { RunBar } from './ui/RunBar.jsx';
 import { EventLog } from './ui/EventLog.jsx';
 import { SideCard } from './ui/SideCard.jsx';
 import { PlanScreen } from './ui/PlanScreen.jsx';
+import { SystemView } from './ui/SystemView.jsx';
+
+const TECH = new URLSearchParams(window.location.search).has('tech');
 
 // ?demo plays a run on load and opens the plan when it finishes (rehearsal).
 // ?demo uses replay at 2x; ?demo=live or ?demo=mock pick the mode.
@@ -21,6 +24,9 @@ export default function App() {
   const [mode, setMode] = useState(DEMO?.mode ?? null);
   const [planOpen, setPlanOpen] = useState(false);
   const [duskCycle, setDuskCycle] = useState(false);
+  const [sysOpen, setSysOpen] = useState(TECH);
+  const [recheck, setRecheck] = useState(null); // Watchtower result for the current plan
+  useEffect(() => setRecheck(null), [state.runId]);
 
   // open the plan once per run when it finishes
   const openedFor = useRef(null);
@@ -55,6 +61,9 @@ export default function App() {
         <button type="button" className="btn brand__toggle" aria-pressed={duskCycle} onClick={() => setDuskCycle((v) => !v)}>
           {duskCycle ? '🌇 Day-to-dusk cycle: on' : '☀ Daytime (start dusk cycle)'}
         </button>
+        <button type="button" className="btn brand__toggle" aria-pressed={sysOpen} onClick={() => setSysOpen((v) => !v)}>
+          ⚙ System view
+        </button>
       </header>
       <RunBar
         state={state}
@@ -69,7 +78,8 @@ export default function App() {
       />
       <EventLog state={state} onSelect={setSelected} />
       <SideCard selected={selected} state={state} onClose={() => setSelected(null)} />
-      {planOpen && <PlanScreen state={state} onClose={() => setPlanOpen(false)} />}
+      {sysOpen && <SystemView state={state} recheck={recheck} onClose={() => setSysOpen(false)} />}
+      {planOpen && <PlanScreen state={state} onClose={() => setPlanOpen(false)} recheck={recheck} setRecheck={setRecheck} />}
       <p className="safety">Lookout never logs in, never submits forms, and never asks for, enters or stores passwords, OTPs or Aadhaar numbers.</p>
       <p className="hint">Drag to orbit · scroll to zoom · right-drag to pan · click a building or character</p>
     </main>

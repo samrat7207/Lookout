@@ -76,3 +76,8 @@ export function createRun({ runId = newRunId(), replay = false } = {}) {
 export function getRun(runId) {
   return runs.get(runId);
 }
+
+/** Runs still in memory (the last hour), newest first. */
+export function listRuns() {
+  return [...runs.values()].reverse();
+}

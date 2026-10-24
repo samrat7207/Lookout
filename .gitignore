@@ -15,6 +15,8 @@ recordings/*
 !recordings/demo-golden.jsonl
 !recordings/fake-run.jsonl
 !recordings/real-run.jsonl
+!recordings/backup/
+!recordings/backup/*.jsonl
 
 # os / editor
 .DS_Store

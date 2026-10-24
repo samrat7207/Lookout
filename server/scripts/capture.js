@@ -13,7 +13,7 @@ const tmp = 'real-run.partial';
 const written = recordRun(run, { name: tmp });
 try {
   run.emit('run.mode', { payload: { mode: 'live' } });
-  await runLive(run);
+  await runLive(run, { ttlMs: 0 }); // a recording is a fresh read: no cache hits
   run.close();
   await written;
   renameSync(join(RECORDINGS_DIR, `${tmp}.jsonl`), join(RECORDINGS_DIR, 'real-run.jsonl'));

@@ -15,10 +15,10 @@ Built in 6 stages ([docs/MILESTONES.md](docs/MILESTONES.md)).
 |---|---|
 | 1 City | ✅ done, upgraded: humanoid citizens with walk cycles, uniformed agents with props, signs, bus stop, stalls, haze, day-to-dusk cycle, click to zoom |
 | 2 Event-driven characters | ✅ done |
-| 3 Real data | ✅ **thin slice**: TinyFish Search + Fetch only, on NSP, MahaDBT 1.0 and Buddy4Study; persona rules; ranked by deadline, then fit; recorded to `recordings/real-run.jsonl` |
+| 3 Real data | ✅ **thin slice**: TinyFish Search + Fetch only, on NSP, MahaDBT 1.0, Buddy4Study, and the Devpost and HackerEarth feeds. Every call goes through the **Gatekeeper** (cache, rate limits, robots.txt, block handling). A **Profiler** feeds the rules, and a **Verifier** re-checks every plan item. Recorded to `recordings/real-run.jsonl` |
 | 4 Plan screen and Application Kit | ✅ done: conflicts panel, ranked list, read-only kits, "Not applicable" reasons, sources footer, `?demo` |
-| 5 Opportunities and Watchtower | ⏭ skipped for now (planned) |
-| 6 Polish and rehearsal | partly: LIVE / REPLAY / MOCK modes with an automatic fallback are done |
+| 5 Opportunities and Watchtower | ✅ **slim**: hackathons and events from the Devpost and HackerEarth feeds, with their own plan tab; Watchtower "Re-check now" (on request only, no schedules) |
+| 6 Polish and rehearsal | partly: LIVE / REPLAY / MOCK with an automatic fallback, a System view (`?tech`), and the API documented in [docs/API.md](docs/API.md) |
 
 ## Team
 
@@ -38,6 +38,10 @@ Samrat Kunte (lead: city, backend, integration), Aman Kumar (Application Kit dat
 | [docs/MILESTONES.md](docs/MILESTONES.md) | The 6 build stages: tasks, what is already done, acceptance checks, commit points, time budget |
 | [docs/DEMO_AND_RISKS.md](docs/DEMO_AND_RISKS.md) | 3-minute demo script, risk register, fallback ladder |
 | [docs/OPEN_QUESTIONS.md](docs/OPEN_QUESTIONS.md) | Decisions still needed from the team |
+| [docs/TECHNICAL_OVERVIEW.md](docs/TECHNICAL_OVERVIEW.md) | One page for mentors: architecture, agent roster, TinyFish use, safeguards, trust model, limits |
+| [docs/AGENT_AUDIT.md](docs/AGENT_AUDIT.md) | Every module and agent: what it does, deterministic or tool-using, tests |
+| [docs/API.md](docs/API.md) | HTTP API with request and response examples |
+| [docs/JUDGE_QA_TECH.md](docs/JUDGE_QA_TECH.md) | 12 likely technical questions with short, honest answers |
 
 ## Stack
 
@@ -61,11 +65,11 @@ npm install
 npm run dev              # http://localhost:5173  (add ?stats for FPS and draw calls)
 ```
 
-Pick a mode in the top bar and press **Start run**:
+Pick a mode in the top bar and press **Start run**. **⚙ System view** (or `?tech`) shows the 10-role agent roster, event counts, TinyFish calls and the cache hit rate, all from the events. On the plan, **🗼 Re-check now** asks the Watchtower to re-fetch the sources (needs the key):
 
 | Mode | What it does | Needs |
 |---|---|---|
-| **Live** | Real TinyFish Search + Fetch on NSP, MahaDBT 1.0 and Buddy4Study, about 30 s. Recorded to `recordings/<runId>.jsonl`. If the key is missing or TinyFish is unreachable, it **falls back** to the last recording and says so in a "Replaying recorded run" badge. | `TINYFISH_API_KEY` in `server/.env` (copy `server/.env.example`) |
+| **Live** | Real TinyFish Search + Fetch on NSP, MahaDBT 1.0, Buddy4Study, Devpost and HackerEarth, about 30 to 50 s (faster with a warm cache, and cache hits are shown). Recorded to `recordings/<runId>.jsonl`. If the key is missing or TinyFish is unreachable, it **falls back** to the last recording and says so in a "Replaying recorded run" badge. | `TINYFISH_API_KEY` in `server/.env` (copy `server/.env.example`) |
 | **Replay** | Replays the last real run (`recordings/real-run.jsonl`), with pause, 1×/2×/4× and restart. | nothing |
 | **Mock** | Replays the scripted run built from recon data (`recordings/fake-run.jsonl`). | nothing |
 
@@ -80,7 +84,7 @@ cd server && npm run capture      # writes recordings/real-run.jsonl; a failed r
 Tests:
 
 ```sh
-cd server && npm test    # NSP and Buddy4Study parsers, ranker, live run on fixtures, fallback, SSE, replay, fake run (26)
+cd server && npm test    # parsers, ranker, Gatekeeper, Verifier, Watchtower diff, Profiler, API, live run on fixtures, fallback, SSE, replay (43)
 cd web && npm test       # event -> character state reducer (5)
 ```
 

@@ -7,6 +7,7 @@ export const SAMPLE_STUDENT = {
   course: 'btech',
   courseLabel: 'B.Tech Computer Engineering',
   branch: 'Computer Engineering',
+  year: 2,
   state: 'Maharashtra',
   category: 'OBC',
   gender: 'male',

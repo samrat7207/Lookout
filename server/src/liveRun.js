@@ -7,13 +7,22 @@
 // Not used tonight (see SOURCES_NOT_USED): Vidyasaarathi, hackathon boards, the Watchtower.
 // Deadlines come only from fetched page text; otherwise "deadline not published".
 
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as tinyfish from './tinyfish/client.js';
+import { createGatekeeper, DEFAULT_TTL_MS } from './tinyfish/gatekeeper.js';
 import { findStudentClosingDate, parseAllScholarships, NSP_ALL_SCHOLARSHIPS_URL, slugify } from './parse/nsp.js';
 import { parseBuddy4Study } from './parse/buddy4study.js';
 import { assessByName, assessPageText } from './rank/rules.js';
 import { CONFLICT_RULES, findRuleEvidence } from './rank/conflicts.js';
 import { buildPlan, istToday } from './rank/ranker.js';
 import { buildKit } from './kit/buildKit.js';
+import { verifyItems } from './verify/verifier.js';
+import { buildCriteria } from './profile/profiler.js';
+import { assessEvent, parseDevpost, parseHackerEarth } from './parse/opps.js';
+
+export const DEVPOST_FEED = 'https://devpost.com/api/hackathons?status[]=upcoming&status[]=open';
+export const HACKEREARTH_FEED = 'https://www.hackerearth.com/chrome-extension/events/';
 import * as recon from './fake/reconData.js';
 
 const NSP_HOME = 'https://scholarships.gov.in/';
@@ -22,8 +31,11 @@ const MAX_B4S_PAGES = 4;
 
 export const SOURCES_NOT_USED = [
   { name: 'Vidyasaarathi', reason: 'Passed recon but most schemes seen were closed or state-restricted; left out of tonight\'s thin slice.' },
-  { name: 'Hackathon boards (Devfolio, MLH, Devpost, HackerEarth, Unstop)', reason: 'Stage 5 (Opportunities) is skipped tonight.' },
-  { name: 'Watchtower (TinyFish Monitor)', reason: 'Stage 5 is skipped tonight.' },
+  { name: 'Unstop', reason: 'Works only as Search plus one detail Fetch per event; left out of the slim Opportunities scout tonight.' },
+  { name: 'Hack2skill', reason: 'Readable, but its deadlines are shown in US time zones (needs verification); left out tonight.' },
+  { name: 'Devfolio and MLH', reason: 'They publish start dates, not registration deadlines; we do not present a start date as a deadline.' },
+  { name: 'Devpost detail pages', reason: 'bot_blocked in recon; we read the Devpost JSON feed instead and never work around the block.' },
+  { name: 'TinyFish Monitor (scheduled Watchtower)', reason: 'Not used: the Watchtower re-checks only when you press "Re-check now". No schedules or webhooks.' },
   { name: 'AICTE portals', reason: 'Fetch returned 403 in recon (blocked); the AICTE schemes are on NSP anyway.' },
   { name: 'Karnataka, UP and West Bengal portals', reason: 'Unreachable in recon (proxy_error).' },
   { name: 'Telangana ePASS', reason: 'Loaded in recon but has no dates.' },
@@ -36,20 +48,37 @@ export class LiveUnavailableError extends Error {}
 const FATAL = new Set(['NO_API_KEY', 'NETWORK', 'TIMEOUT']);
 const isFatal = (err) => FATAL.has(err.code) || err.status === 401 || err.status === 403;
 
+export const CACHE_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '.cache', 'tinyfish');
+
 const AGENTS = {
   'nsp-scout': { name: 'Nisha', role: 'NSP Researcher', building: 'nsp' },
   'mahadbt-scout': { name: 'Mahi', role: 'State Verifier', building: 'mahadbt' },
   'foundations-scout': { name: 'Fauzi', role: 'Foundations Researcher', building: 'foundations' },
+  'opps-scout': { name: 'Hacky', role: 'Opportunities Researcher', building: 'opportunities' },
   mayor: { name: 'Mayor Tara', role: 'Orchestrator', building: 'townhall' },
+  gatekeeper: { name: 'Gita', role: 'Gatekeeper', building: 'townhall' },
+  verifier: { name: 'Vera', role: 'Verifier', building: 'townhall' },
+  profiler: { name: 'Priya', role: 'Profiler', building: 'townhall' },
 };
+
+// where each source's items live in the city (for verify.result events)
+export const SOURCE_BUILDING = { nsp: 'nsp', mahadbt: 'mahadbt', buddy4study: 'foundations', vidyasaarathi: 'foundations', devpost: 'opportunities', hackerearth: 'opportunities', unstop: 'opportunities' };
 
 /**
  * @param {ReturnType<import('./bus.js').createRun>} run
- * @param {{ profile?: object, client?: {search: Function, fetchPages: Function}, today?: string, onLive?: Function }} [opts]
- *   onLive runs once the preflight passed, before the first event (the server starts recording there)
+ * @param {{ profile?: object, client?: {search: Function, fetchPages: Function}, today?: string, onLive?: Function,
+ *   cacheDir?: string|null, ttlMs?: number, robots?: boolean }} [opts]
+ *   onLive runs once the preflight passed, before the first event (the server starts recording there).
+ *   Every web call goes through the Gatekeeper (cache, rate limits, robots.txt, block handling).
  */
 export async function runLive(run, opts = {}) {
-  const { profile = recon.SAMPLE_STUDENT, client = tinyfish, today = istToday(), onLive = () => {} } = opts;
+  const { profile = recon.SAMPLE_STUDENT, client = tinyfish, today = istToday(), onLive = () => {}, opportunities = process.env.OPPORTUNITIES !== 'off' } = opts;
+  const gk = createGatekeeper({
+    client,
+    cacheDir: opts.cacheDir === undefined ? CACHE_DIR : opts.cacheDir,
+    ttlMs: opts.ttlMs ?? DEFAULT_TTL_MS,
+    robots: opts.robots ?? true,
+  });
   const startedAt = Date.now();
   const now = () => new Date().toISOString();
 
@@ -57,12 +86,12 @@ export async function runLive(run, opts = {}) {
   // nothing has been emitted yet, so the server can fall back to a recording cleanly.
   let nspSearch;
   try {
-    nspSearch = await client.search({ query: 'closing dates for student application 2026-27', include_domains: 'scholarships.gov.in' });
+    nspSearch = await gk.search({ query: 'closing dates for student application 2026-27', include_domains: 'scholarships.gov.in' });
   } catch (err) {
     if (isFatal(err)) throw new LiveUnavailableError(`${err.code}${err.status ? ` (${err.status})` : ''}: ${err.message}`);
     nspSearch = { error: err };
   }
-  const searchCheckedAt = now();
+  const searchCheckedAt = nspSearch.fetchedAt ?? now();
 
   const found = [];
   const notApplicable = [];
@@ -73,11 +102,19 @@ export async function runLive(run, opts = {}) {
   let errors = 0;
 
   onLive();
-  const agentIds = Object.keys(AGENTS);
+  const agentIds = Object.keys(AGENTS).filter((id) => id !== 'opps-scout' || opportunities);
   run.emit('run.started', { payload: { profile, mode: 'live', today, agents: agentIds, sourcesNotUsed: SOURCES_NOT_USED } });
   for (const id of agentIds) {
     run.emit('agent.spawned', { agentId: id, building: 'townhall', payload: { name: AGENTS[id].name, role: AGENTS[id].role } });
   }
+  // the Gatekeeper owns cache.hit / cache.miss / rate.limited / blocked / fallback
+  gk.attach((kind, payload) => run.emit(kind, { agentId: 'gatekeeper', building: 'townhall', payload }));
+
+  // Profiler: profile -> criteria for the Judge, plus the facts we do not know
+  const profiled = buildCriteria(profile);
+  const criteria = profiled.criteria;
+  run.emit('profile.ready', { agentId: 'profiler', building: 'townhall', payload: profiled });
+  run.emit('agent.done', { agentId: 'profiler', building: 'townhall', payload: { findings: 0, durationMs: 0, unknown: profiled.unknown.length } });
 
   const as = (agentId) => {
     const { building } = AGENTS[agentId];
@@ -98,23 +135,24 @@ export async function runLive(run, opts = {}) {
       back: () => emit('agent.returning', { to: 'townhall' }),
     };
   };
-  const log = (name, url, ok, error) => ledger.push({ name, url, ok, checkedAt: now(), ...(error && { error }) });
+  const log = (name, url, ok, error, extra = {}) => ledger.push({ name, url, ok, checkedAt: extra.checkedAt ?? now(), ...(error && { error }), ...extra });
 
   /** Fetch with per-URL results; failures become agent.error and ledger entries, never crashes. */
   async function fetchAll(a, label, entries, opts2 = {}) {
     a.work('fetch', entries.length === 1 ? entries[0].url : `${entries.length} pages`, label);
     try {
-      const { results, errors: errs } = await client.fetchPages({ urls: entries.map((e) => e.url), format: 'markdown', per_url_timeout_ms: 45_000, ...opts2 });
+      const { results, errors: errs } = await gk.fetchPages({ urls: entries.map((e) => e.url), format: 'markdown', per_url_timeout_ms: 45_000, ...opts2 });
       const byUrl = new Map(results.map((r) => [r.url, r]));
       for (const e of entries) {
         const r = byUrl.get(e.url);
         const err = errs.find((x) => x.url === e.url);
         if (r?.text) {
-          log(e.name, e.url, true);
-          r.checkedAt = now();
+          // "last checked" is when the text was really fetched (older if it came from the cache)
+          r.checkedAt = r.fetchedAt ?? now();
+          log(e.name, e.url, true, null, { checkedAt: r.checkedAt, cached: !!r.cached, ...(r.stale && { stale: true }) });
         } else {
-          const why = err ? `${err.error}${err.status ? ` (${err.status})` : ''}` : 'empty page';
-          log(e.name, e.url, false, why);
+          const why = err ? `${err.error}${err.status ? ` (${err.status})` : ''}${err.reason ? `: ${err.reason}` : ''}` : 'empty page';
+          log(e.name, e.url, false, why, err?.blocked ? { blocked: true } : {});
           a.error('fetch', e.url, { code: err?.error ?? 'empty', message: `${e.name} did not load: ${why}` });
         }
       }
@@ -176,7 +214,7 @@ export async function runLive(run, opts = {}) {
       const schemes = parseAllScholarships(list.text);
       const kept = [];
       for (const s of schemes) {
-        const fit = assessByName(s.name, profile);
+        const fit = assessByName(s.name, criteria);
         if (fit.fit === 'not_applicable') notApplicable.push({ title: s.name, reason: fit.reason, sourceUrl: NSP_ALL_SCHOLARSHIPS_URL, checkedAt: list.checkedAt });
         else kept.push([s, fit]);
       }
@@ -251,7 +289,7 @@ export async function runLive(run, opts = {}) {
     a.work('search', 'B.Tech engineering scholarship 2026-27 deadline (buddy4study.com)', 'Search Buddy4Study');
     let urls = [];
     try {
-      const res = await client.search({ query: 'scholarship 2026-27 engineering B.Tech students deadline date', include_domains: 'buddy4study.com' });
+      const res = await gk.search({ query: 'scholarship 2026-27 engineering B.Tech students deadline date', include_domains: 'buddy4study.com' });
       ledger.push({ name: 'Buddy4Study Search', url: 'https://www.buddy4study.com/', ok: true, checkedAt: now() });
       urls = [...new Set((res.results ?? []).map((r) => r.url).filter((u) => /buddy4study\.com\/(page|scholarship)\//.test(u)))].slice(0, MAX_B4S_PAGES);
     } catch (err) {
@@ -270,7 +308,7 @@ export async function runLive(run, opts = {}) {
           notApplicable.push({ title, reason: `Closed: the last deadline on the page (${p.pastDeadline}) has passed.`, sourceUrl: url, checkedAt: page.checkedAt });
           continue;
         }
-        const fit = assessPageText(title, p.main, profile);
+        const fit = assessPageText(title, p.main, criteria);
         if (fit.fit === 'not_applicable') {
           notApplicable.push({ title, reason: fit.reason, sourceUrl: url, checkedAt: page.checkedAt });
           continue;
@@ -303,16 +341,83 @@ export async function runLive(run, opts = {}) {
   const sources = () => {
     const failed = ledger.filter((l) => !l.ok).length;
     const times = ledger.map((l) => l.checkedAt).sort();
-    return { checked: ledger.length, failed, lastChecked: times.at(-1) ?? null, list: ledger, notUsed: SOURCES_NOT_USED };
+    const cached = ledger.filter((l) => l.cached).length;
+    return { checked: ledger.length, failed, cached, lastChecked: times.at(-1) ?? null, list: ledger, notUsed: SOURCES_NOT_USED, gatekeeper: gk.stats() };
   };
-  const planNow = (extra = {}) => buildPlan(found, { today, headline, notes, notApplicable, ruleEvidence, sources: sources(), ...extra });
+  let verification = new Map();
+  const planNow = (extra = {}) => buildPlan(found, { today, headline, notes, notApplicable, ruleEvidence, sources: sources(), verification, profile: profiled, ...extra });
   const mayorPlan = (kind, extra) => run.emit(kind, { agentId: 'mayor', building: 'townhall', payload: planNow(extra) });
+
+  // Opportunities scout: hackathons and tech events from the two JSON feeds that passed recon
+  async function oppsScout() {
+    const a = as('opps-scout');
+    const t0 = Date.now();
+    a.walk('Looking for hackathons and tech events');
+    const pages = await fetchAll(a, 'Fetch Devpost and HackerEarth event feeds', [
+      { name: 'Devpost hackathons (JSON)', url: DEVPOST_FEED },
+      { name: 'HackerEarth events (JSON)', url: HACKEREARTH_FEED },
+    ]);
+    const events = [
+      ...(pages.get(DEVPOST_FEED)?.text ? parseDevpost(pages.get(DEVPOST_FEED).text).map((e) => ({ ...e, feed: DEVPOST_FEED, checkedAt: pages.get(DEVPOST_FEED).checkedAt })) : []),
+      ...(pages.get(HACKEREARTH_FEED)?.text ? parseHackerEarth(pages.get(HACKEREARTH_FEED).text).map((e) => ({ ...e, feed: HACKEREARTH_FEED, checkedAt: pages.get(HACKEREARTH_FEED).checkedAt })) : []),
+    ];
+    let n = 0;
+    for (const e of events) {
+      const fit = assessEvent(e, criteria, today);
+      if (fit.fit === 'not_applicable') {
+        notApplicable.push({ title: e.title, reason: fit.reason, sourceUrl: e.url, checkedAt: e.checkedAt });
+        continue;
+      }
+      n++;
+      a.found({
+        id: `${e.source}:${slugify(e.title)}`,
+        kind: e.kind ?? 'hackathon',
+        fit: fit.fit,
+        title: e.title,
+        deadline: e.end,
+        deadlineLabel: e.end ? (e.source === 'devpost' ? 'Submissions close' : 'Challenge ends') : 'deadline not published',
+        // the date was read from the feed, so the feed is the source the Verifier re-checks
+        sourceUrl: e.feed,
+        eventUrl: e.url,
+        checkedAt: e.checkedAt,
+        matchReason: fit.reason,
+        needsVerification: e.source === 'hackerearth', // end_tz may be the challenge end, not the last day to register
+        source: e.source,
+        dateSource: e.end ? 'parsed' : 'none',
+        evidence: e.evidence,
+        amount: e.prize ? `Prize pool ${e.prize} (as listed on Devpost)` : null,
+        matchedOn: [`mode=${e.mode}`],
+        bubble: `${e.title.slice(0, 36)}${e.end ? `: ${e.end.slice(8)}/${e.end.slice(5, 7)}` : ''}`,
+        via: 'fetch',
+        cached: false,
+        event: { startsOn: e.start, endsOn: e.end, mode: e.mode, location: e.location, organiser: e.organiser },
+      });
+    }
+    a.progress(`Read ${events.length} events from 2 feeds; ${n} fit (online or in India and still open)`, 'fetch');
+    a.done(n, t0);
+    a.back();
+  }
 
   await Promise.all([
     nspScout().then(() => mayorPlan('plan.updated')),
     mahadbtScout().then(() => mayorPlan('plan.updated')),
     foundationsScout().then(() => mayorPlan('plan.updated')),
+    ...(opportunities ? [oppsScout().then(() => mayorPlan('plan.updated'))] : []),
   ]);
+
+  // Verifier: re-fetch every plan item's source (cache bypassed) and check name + deadline
+  {
+    const emitV = (kind, payload, building = 'townhall') => run.emit(kind, { agentId: 'verifier', building, payload });
+    const items = planNow().items;
+    const t0 = Date.now();
+    emitV('agent.working', { tool: 'fetch', target: `${new Set(items.map((i) => i.sourceUrl)).size} source pages`, label: `Re-check ${items.length} plan items` });
+    verification = await verifyItems(items, gk, {
+      onResult: (item, r) => emitV('verify.result', { opportunityId: item.opportunityId, title: item.title, ...r }, SOURCE_BUILDING[item.source] ?? 'townhall'),
+    });
+    const tally = { verified: 0, changed: 0, unverified: 0 };
+    for (const r of verification.values()) tally[r.status]++;
+    emitV('agent.done', { findings: 0, durationMs: Date.now() - t0, ...tally });
+  }
 
   const kitIds = new Map();
   const planned = new Set(planNow().items.map((i) => i.opportunityId));
@@ -322,5 +427,6 @@ export async function runLive(run, opts = {}) {
     run.emit('kit.ready', { agentId: 'mayor', building: 'townhall', payload: kit });
   }
   mayorPlan('plan.ready', { kitIds });
-  run.emit('run.complete', { payload: { durationMs: Date.now() - startedAt, findings: found.length, errors } });
+  run.emit('agent.done', { agentId: 'gatekeeper', building: 'townhall', payload: { findings: 0, durationMs: Date.now() - startedAt, ...gk.stats() } });
+  run.emit('run.complete', { payload: { durationMs: Date.now() - startedAt, findings: found.length, errors, gatekeeper: gk.stats() } });
 }

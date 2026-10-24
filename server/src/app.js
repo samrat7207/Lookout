@@ -1,13 +1,18 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import express from 'express';
-import { createRun, getRun } from './bus.js';
+import { createRun, getRun, listRuns } from './bus.js';
 import { streamRun } from './sse.js';
 import { recordRun } from './recorder.js';
 import { runFake } from './fakeAgents.js';
 import { SAMPLE_STUDENT } from './fake/reconData.js';
 import { createControl, listRecordings, recordingPath, replayRecording } from './replay.js';
+import * as tinyfish from './tinyfish/client.js';
 import { hasApiKey } from './tinyfish/client.js';
-import { LiveUnavailableError, runLive } from './liveRun.js';
+import { CACHE_DIR, LiveUnavailableError, runLive } from './liveRun.js';
+import { createGatekeeper } from './tinyfish/gatekeeper.js';
+import { recheck } from './watch/watchtower.js';
+import { istToday } from './rank/ranker.js';
 
 // Modes (MODE in server/.env sets the default):
 //   live    real TinyFish Search + Fetch; recorded to recordings/<runId>.jsonl. Falls back
@@ -52,6 +57,7 @@ export const starters = {
       return await runLive(run, {
         profile: { ...SAMPLE_STUDENT, ...body.profile },
         client: ctx.client,
+        ...(ctx.cacheDir !== undefined && { cacheDir: ctx.cacheDir }),
         onLive: () => {
           run.emit('run.mode', { payload: { mode: 'live' } });
           if (ctx.record) recordRun(run).catch((err) => console.error('recorder:', err.message));
@@ -73,23 +79,46 @@ function parseSpeed(value) {
   return Number.isFinite(n) && n > 0 && n <= MAX_SPEED ? n : undefined;
 }
 
-/** @param {{ record?: boolean, client?: {search: Function, fetchPages: Function} }} [opts] client is for tests */
-export function createApp({ record = true, client } = {}) {
+/** @param {{ record?: boolean, client?: {search: Function, fetchPages: Function}, cacheDir?: string|null }} [opts]
+ *  client and cacheDir are for tests (null = no disk cache) */
+/** Files and bytes in the Gatekeeper's disk cache. */
+function cacheStats(dir) {
+  if (!dir || !existsSync(dir)) return { entries: 0, bytes: 0 };
+  let entries = 0;
+  let bytes = 0;
+  for (const f of readdirSync(dir)) {
+    entries++;
+    bytes += statSync(join(dir, f)).size;
+  }
+  return { entries, bytes };
+}
+
+/** The latest plan in a run's history (plan.ready, else the last plan.updated). */
+function planOf(run) {
+  const evt = run.history.findLast((e) => e.kind === 'plan.ready') ?? run.history.findLast((e) => e.kind === 'plan.updated');
+  return evt?.payload ?? null;
+}
+
+export function createApp({ record = true, client, cacheDir } = {}) {
   const app = express();
-  app.use(express.json());
+  app.use(express.json({ limit: '200kb' }));
+  const cacheDirUsed = cacheDir === undefined ? CACHE_DIR : cacheDir;
+  let lastRun = null; // { runId, mode, startedAt, finishedAt, outcome, gatekeeper? }
 
   app.get('/api/health', (_req, res) => {
     res.json({
       ok: true,
       modes: MODES,
       defaultMode: defaultMode(),
-      tinyfishKeyPresent: hasApiKey(),
+      tinyfishKeyPresent: hasApiKey(), // yes/no only; the key itself never leaves client.js
       lastRecording: lastRealRecording(),
       opportunities: process.env.OPPORTUNITIES !== 'off',
+      cache: cacheStats(cacheDirUsed),
+      lastRun,
     });
   });
 
-  app.post('/api/runs', (req, res) => {
+  app.post(['/api/runs', '/api/run'], (req, res) => {
     const body = req.body ?? {};
     const mode = body.mode ?? defaultMode();
     const start = starters[mode];
@@ -102,13 +131,24 @@ export function createApp({ record = true, client } = {}) {
     if (replaying || mode === 'live') run.control = createControl({ speed: parseSpeed(body.speed) ?? 1 });
     if (record && mode === 'fake') recordRun(run).catch((err) => console.error('recorder:', err.message));
 
+    lastRun = { runId: run.id, mode, startedAt: new Date().toISOString(), finishedAt: null, outcome: 'running' };
+    const mine = lastRun;
     Promise.resolve()
-      .then(() => start(run, body, { record, client }))
+      .then(() => start(run, body, { record, client, cacheDir }))
       .catch((err) => {
-        console.error(`run ${run.id} failed:`, err);
+        console.error(`run ${run.id} failed:`, err.message);
         if (!run.closed) run.emit('run.failed', { payload: { message: err.message } });
       })
-      .finally(() => run.close());
+      .finally(() => {
+        run.close();
+        const end = run.history.findLast((e) => e.kind === 'run.complete' || e.kind === 'run.failed');
+        Object.assign(mine, {
+          finishedAt: new Date().toISOString(),
+          outcome: end?.kind === 'run.complete' ? 'complete' : 'failed',
+          replay: run.replay,
+          ...(end?.payload?.gatekeeper && { gatekeeper: end.payload.gatekeeper }),
+        });
+      });
 
     res.status(201).json({ runId: run.id, ...(run.control && { control: run.control }) });
   });
@@ -138,10 +178,58 @@ export function createApp({ record = true, client } = {}) {
     res.json({ default: lastRealRecording(), recordings: await listRecordings() });
   });
 
-  app.get('/api/runs/:runId/events', (req, res) => {
+  app.get(['/api/runs/:runId/events', '/api/run/:runId/events'], (req, res) => {
     const run = getRun(req.params.runId);
     if (!run) return res.status(404).json({ error: 'run not found' });
     streamRun(req, res, run);
+  });
+
+  app.get(['/api/runs/:runId/plan', '/api/run/:runId/plan'], (req, res) => {
+    const run = getRun(req.params.runId);
+    if (!run) return res.status(404).json({ error: 'run not found (runs are kept in memory for an hour)' });
+    const plan = planOf(run);
+    if (!plan) return res.status(404).json({ error: 'no plan yet', closed: run.closed });
+    res.json({ runId: run.id, final: run.history.some((e) => e.kind === 'plan.ready'), replay: run.replay, plan });
+  });
+
+  // The latest read-only kit for a scheme, from runs still in memory. schemeId is the
+  // opportunity id ("nsp:...") or the kit id ("kit:nsp:...").
+  app.get('/api/kit/:schemeId', (req, res) => {
+    const id = req.params.schemeId;
+    for (const run of listRuns()) {
+      const kit = run.history.findLast((e) => e.kind === 'kit.ready' && (e.payload.opportunityId === id || e.payload.id === id))?.payload;
+      if (kit) return res.json({ runId: run.id, replay: run.replay, kit });
+    }
+    res.status(404).json({ error: 'no kit for this scheme in recent runs' });
+  });
+
+  // Watchtower: re-fetch the sources of a plan's items now and report real changes only.
+  // Body: { runId } (preferred) or { items: [{ opportunityId, title, deadline, source, sourceUrl }] }.
+  app.post('/api/recheck', async (req, res) => {
+    if (!hasApiKey() && !client) return res.status(503).json({ error: 'Re-check reads live pages, so it needs the TinyFish key on the server. Nothing was checked.' });
+    const body = req.body ?? {};
+    let items = null;
+    const run = body.runId ? getRun(body.runId) : null;
+    if (run) {
+      const plan = planOf(run);
+      items = plan ? [...plan.items, ...(plan.missed ?? [])] : null;
+    }
+    if (!items && Array.isArray(body.items)) {
+      items = body.items
+        .slice(0, 60)
+        .filter((i) => i && typeof i.title === 'string' && typeof i.sourceUrl === 'string')
+        .map((i) => ({ opportunityId: String(i.opportunityId ?? i.title), title: i.title.slice(0, 300), deadline: /^\d{4}-\d{2}-\d{2}$/.test(i.deadline ?? '') ? i.deadline : null, source: String(i.source ?? ''), sourceUrl: i.sourceUrl }));
+    }
+    if (!items?.length) return res.status(400).json({ error: 'give a runId that is still in memory, or the plan items to re-check' });
+    const events = [];
+    const gk = createGatekeeper({ client: client ?? tinyfish, cacheDir: cacheDirUsed });
+    gk.attach((kind, payload) => events.push({ kind, ...payload }));
+    try {
+      const out = await recheck(items, gk, { today: istToday() });
+      res.json({ ...out, gatekeeper: { ...gk.stats(), events } });
+    } catch (err) {
+      res.status(502).json({ error: `Re-check failed: ${err.code ?? ''} ${err.message}`.trim(), gatekeeper: { ...gk.stats(), events } });
+    }
   });
 
   return app;

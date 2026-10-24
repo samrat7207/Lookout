@@ -31,6 +31,7 @@ IDs:
 
 | kind | Emitted when | payload |
 |---|---|---|
+| `run.mode` | First event of a live, replay or mock run | `{ mode: "live"\|"replay"\|"mock", recording?, recordedAt?, fallbackReason? }`. The city shows a "Replaying recorded run" badge unless `mode` is live. The first one wins (a replayed live recording carries its own). |
 | `run.started` | The run is created | `{ profile, mode, today: "2026-10-24", agents: [agentId...] }` |
 | `agent.spawned` | An agent appears at Town Hall | `{ name, role }` |
 | `agent.walking` | The agent heads to a building | `{ to: building, reason: "Checking NSP scheme list" }` |

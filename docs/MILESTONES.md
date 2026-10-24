@@ -77,75 +77,72 @@ Time budget for 24 h: S1 about 4 h → S2 about 4 h → S3 about 5 h → S4 abou
 
 ---
 
-## Stage 3: Real data via TinyFish (about 5 h)
+## Stage 3: Real data via TinyFish ✅ thin slice done
 
-**Goal:** `mode: "live"`. Real Search and Fetch scouts for the kept sources, a persona-based ranker, and every live run recorded to JSONL. **This needs the TinyFish API key in `server/.env`.**
+**Goal:** `mode: "live"`. Real Search and Fetch scouts for the kept sources, a persona-based ranker, and every live run recorded to JSONL.
 
-### Already done ✅
-- ✅ `tinyfish/client.js` skeleton: `search()` and `fetchPages()`. It is the only file that reads the key, and `/api/health` reports only whether a key is present.
-- ✅ `parse/nsp.js`: the **NSP parser**. 31/31 schemes in the fixture, the "(for Renewal)" variants, spacing and CRLF, and impossible dates are rejected (tested).
-- ✅ `npm run capture` (refreshes fixtures, needs the key).
-- ✅ The recorder already writes every run to JSONL, so live runs are recorded with no new code.
+### Done ✅ (thin slice)
+- ✅ Key in `server/.env` (gitignored, checked with `git check-ignore`); `server/.env.example` has empty placeholders. The key is read only in `tinyfish/client.js` and is in no tracked file, recording or commit.
+- ✅ `liveRun.js`: **TinyFish Search + Fetch only** (no Agent API, no Monitor, no logins). One polite retry on 429/503.
+  - nsp-scout: Search (headline from the snippet), Fetch NSP All-Scholarships + home, parse all schemes, keep or drop each with a reason.
+  - mahadbt-scout: Fetch the MahaDBT 1.0 landing page + the 2 OBC scheme pages, and try MahaDBT 2.0 once (it still returns `proxy_error`, shown honestly).
+  - foundations-scout: Search Buddy4Study, Fetch up to 4 detail pages, `parse/buddy4study.js` (current deadline, award, past-year blocks ignored).
+  - Not used tonight, listed with reasons in the plan: Vidyasaarathi, hackathon boards, the Watchtower Monitor, and the sources dropped in recon.
+- ✅ `rank/rules.js`: persona eligibility (match / conditional / unclear / not applicable) from official rules for known schemes and from scheme names and page text otherwise (marked "needs verification").
+- ✅ `rank/ranker.js`: **rank = deadline, then fit**, nothing else (ties by title for a stable order). "Deadline not published" goes last. Each item has a plain "Why this ranking" line, its source URL and a last-checked time.
+- ✅ Conflict warnings never state a hard rule: "These may not be combinable. Check the current NSP rules before applying." A rule is quoted and linked only when a page fetched in that run says it (tonight the NSP home page did not, so none is quoted).
+- ✅ `MODE=live|replay|mock`, and an automatic fallback from live to the last recording (missing key, 401/403, network) with a "Replaying recorded run" badge.
+- ✅ `npm run capture` records one live run to `recordings/real-run.jsonl` (committed). Last capture: 12 source calls, 1 failed (MahaDBT 2.0), 7 ranked items, 32 not applicable, 2 conflicts, about 30 s.
+- ✅ Tests: ranker order, Buddy4Study parser, live run on fixtures with a stub client, bad key → no events, fallback over HTTP, MODE default.
 
-### Tasks
-1. **First 20 minutes:** put the key in `server/.env`, run `npm run capture`, and check the wallet. Retry `mahadbt2.maharashtra.gov.in` once (it returned `proxy_error` twice in recon). Update RECON_FINDINGS.
-2. `sources/registry.js`: the kept sources from RECON_FINDINGS §3, each with its discovery (Search or a fixed URL), Fetch options, parser and `building` ID. Only kept sources go in it. Dropped ones are listed in a comment with the reason.
-3. `agents/nspScout.js`: Search (headline from the snippet via `findStudentClosingDate`), then Fetch All-Scholarships and home, then parse, match and emit.
-4. `agents/stateScout.js` (state building): MahaDBT 1.0 for Maharashtra. Fetch the landing page (html, for the name→URL map), Fetch up to 10 scheme pages, parse eligibility and **Documents Required** (`parse/mahadbt.js`), and emit the MahaDBT 2.0 note. For other states, emit the honest "state portal not covered" note.
-5. `agents/foundationsScout.js`: **Buddy4Study via Search** (detail pages; the listing page is empty) and **Vidyasaarathi via Search**, then Fetch up to 10 detail pages (`parse/buddy4study.js`, `parse/vidyasaarathi.js`, with fixtures and tests; see RECON_FINDINGS §3 for the past-year blocks and the `Deadline :` variant).
-6. `rank/rules.js`: the **persona-based ranker** (APPROACH D4 keyword rules and exclusions), wired into the existing `ranker.js` sort. Tests cover the sample student (male, B.Tech CE, 2nd year, OBC, Maharashtra) and the persona variants in RECON_FINDINGS.
-7. `tinyfish/cache.js`: a disk cache plus a fallback, with `cached: true` tagging.
-8. Orchestrator: run the scouts in parallel, emit `plan.ready` when they are done, and emit `kit.ready` for each scholarship.
-9. Error drills: wrong key (401), a slow Fetch (the bubble shows a retry), and the network off (cache).
+### Not done (later)
+- `sources/registry.js` and `tinyfish/cache.js` (disk cache); the scouts are in one file for now.
+- MahaDBT "Documents Required" parsing for the kits; the MahaDBT 1.0 landing page no longer shows the 2.0 notice in its fetched text, so no note is emitted live.
+- Vidyasaarathi.
 
-### Acceptance
-- A live run with the sample student finishes `plan.ready` in **under 60 s**, with real NSP dates, real state schemes and at least 2 real private/foundation scholarships. Every item has a working source link.
-- The run is in `recordings/<runId>.jsonl`, and replays with `mode: "mock"`.
-- `grep -r TINYFISH_API_KEY` in code shows only `.env`, `.env.example` and `client.js`. The browser network tab shows no tinyfish.ai requests.
-
-**Commit:** `Stage 3: live TinyFish scouts, source registry, persona ranker`
+**Commit:** `Step 2: live thin slice (TinyFish Search + Fetch), MODE live|replay|mock with fallback, deadline-then-fit ranker`
 
 ---
 
-## Stage 4: Plan screen and Application Kit (about 4 h)
+## Stage 4: Plan screen and Application Kit ✅ done
 
-**Goal:** the plan and the kits are readable and trustworthy. **The kit is read-only and prefill-only. Lookout never submits forms, and never asks for, enters or stores passwords, OTPs or Aadhaar numbers.**
+**Goal:** the plan and the kits are readable and trustworthy. **The kit is read-only and prefill-only. Lookout never logs in, never submits forms, and never asks for, enters or stores passwords, OTPs or Aadhaar numbers.**
 
-### Already done ✅
-- ✅ `rank/ranker.js`: the **basic plan sorter**. One list of all kinds, sorted by deadline, undated items last, ties broken by score, with buckets, a headline and missed items (tested).
-- ✅ `kit/buildKit.js`: the **kit builder**. Documents, persona-prefilled fields, steps, deadline and source. `assertKitSafe()` refuses any sensitive field (Aadhaar, OTP, password, bank) that has a value (tested).
+### Done ✅
+- ✅ `rank/ranker.js` and `kit/buildKit.js` (from before), now with `fit`, `rankWhy`, `amount`, `checkedAt`, `needsVerification`, `notApplicable` and `sources`.
+- ✅ `ui/PlanScreen.jsx`: opens over the city when the run finishes (or **View plan**).
+  - Conflicts panel at the top.
+  - Ranked list: name, status chip (match / conditional / unclear), "needs verification" tag, deadline or "Deadline not published", days left, amount if known, source link, last checked, the "why you match" line and **"Why this ranking"**.
+  - **Application Kit** per scholarship (read-only): safety notice, documents ("usually needed · needs verification" where not read from a page), steps in order, the official portal link, prefilled persona fields, and "Enter this yourself on the official portal" for sensitive ones. No inputs.
+  - "Not applicable" with the reason for each dropped scheme, "Missed", and "Sources not used tonight".
+  - Footer: "Sources checked: N, failed: M, last checked: time".
+- ✅ `?demo` auto-plays a run and opens the plan (rehearsal).
+- ✅ Projector-readable: 16 to 30 px type, strong contrast.
 
-### Tasks
-1. Profile form, prefilled with the **sample student** and labelled as such.
-2. Plan panel: **one list sorted by deadline**, with bucket dividers, a **category tag** (scholarship / hackathon / event), source, the date and its label, days left, a **"why you match"** line, the source link and the action.
-3. Countdown banner from `plan.headline` (NSP, 31 Oct).
-4. Application Kit drawer from `kit.ready`: documents checklist, prefilled fields, steps, deadline, source link, and the fixed safety notice at the top. Sensitive fields render as "Enter this yourself on the official portal", and never as inputs.
-5. Kits use the real Documents Required lists from Stage 3 where a scout parsed them, and "usually needed" items otherwise.
-
-### Acceptance
-- Run (fake or live). The plan appears as one deadline-sorted list, with 31 Oct and "7 days left" in the banner.
-- Every scholarship row opens a kit with the safety notice visible, and no kit contains an input box.
-
-**Commit:** `Stage 4: plan screen and read-only Application Kit`
+**Commit:** `Step 3: plan screen with conflicts, ranked list, read-only kits, not-applicable reasons, sources footer, ?demo`
 
 ---
 
-## Stage 5: Opportunities district and Watchtower (about 3 h)
+## City upgrade ✅ done (after Stage 2)
+- Citizens: about 60 humanoids (head, hair in five styles, torso, arms, legs) with walk cycles, varied heights, skin tones and clothes. They walk the sidewalks, wait at crossings, chat in small groups, sit on benches, carry bags or look at phones, and step aside for agents. 9 instanced meshes.
+- Agents: uniforms and props by job (researchers with a laptop and glasses, verifiers with a vest, badge, cap and clipboard, the orchestrator in a suit with a tablet), about 1.6 times citizen height, with a walk cycle, a name tag and a status ring.
+- Places: readable signs on every source building and the shops (one canvas atlas, one draw call), a bus stop, market stalls, bins, plus the existing lamps, benches, trees, planters, fountain, plaza and crosswalks.
+- Atmosphere: soft sun shadows, haze (fog), a day-to-dusk cycle toggle (windows light up), and a smooth zoom to a building when it is clicked.
+- Frame time (`?stats`, render only): **about 2.3 ms per frame at 1920×912, 85 draw calls, about 92k triangles** on an AMD Radeon integrated GPU.
 
-**Goal:** hackathons and events join the same plan, and the Watchtower watches the NSP deadlines. **The Opportunities district can be cut:** with `OPPORTUNITIES=off` the agent is not spawned, the district stays idle, and nothing breaks.
+**Commit:** `Step 4: humanoid citizens and uniformed agents, signs, bus stop, stalls, bins, haze, day-to-dusk cycle, zoom to building`
 
-### Tasks
+---
+
+## Stage 5: Opportunities district and Watchtower ⏭ skipped for now (planned)
+
+Skipped to keep the night's budget; nothing depends on it. With no `opps-scout` the district stays idle scenery, and the Watchtower beacon is decorative. The plan lists both under "Sources not used tonight".
+
+### Planned tasks (unchanged)
 1. `agents/oppsScout.js` + `parse/opps.js`: Fetch Devfolio, MLH, the Devpost JSON and the HackerEarth JSON in one request. Search Unstop, then Fetch its detail pages with `include_selectors: ["main"]` (RECON_FINDINGS §4). Keep events that are online or in India, still open, and open to UG students. Use honest `deadlineLabel`s.
 2. `scripts/setupMonitor.js`: create the Monitor once and print `MONITOR_ID` for `.env`.
-3. `agents/watchtower.js`: run now, re-parse with `parse/nsp.js`, diff against `server/.cache/watchtower.json`, and emit `watchtower.checked` or `watchtower.change`. Optional webhook route plus a tunnel.
+3. `agents/watchtower.js`: run now, re-parse with `parse/nsp.js`, diff against `server/.cache/watchtower.json`, and emit `watchtower.checked` or `watchtower.change`.
 4. Web: the district lights up for `opps-scout`, the Watchtower beacon shows checked/changed states, and the plan shows hackathon rows with their tag.
-
-### Acceptance
-- A live run lists real hackathons in the same deadline-sorted list.
-- The Watchtower shows "checked at HH:MM" from a real Monitor run.
-- `OPPORTUNITIES=off` gives a clean run with no hackathon rows.
-
-**Commit:** `Stage 5: Opportunities district and Watchtower deadline monitoring`
 
 ---
 
@@ -154,6 +151,7 @@ Time budget for 24 h: S1 about 4 h → S2 about 4 h → S3 about 5 h → S4 abou
 **Goal:** the demo never breaks on stage.
 
 ### Already done ✅
+- ✅ Modes in the UI: LIVE / REPLAY / MOCK with an automatic live → replay fallback and an honest badge (Stage 3 thin slice), speed 1×/2×/4×, `?demo`.
 - ✅ `replay.js`: plays a JSONL file into a new run through **the same SSE endpoint** (`POST /api/runs` with `mode: "mock"`). It keeps the timing, applies the speed multiplier and a 4 s gap cap, and sets `replay: true` (tested). `GET /api/recordings` lists the recordings.
 
 ### Tasks

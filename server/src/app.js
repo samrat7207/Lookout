@@ -6,6 +6,7 @@ import { recordRun } from './recorder.js';
 import { runFake } from './fakeAgents.js';
 import { SAMPLE_STUDENT } from './fake/reconData.js';
 import { listRecordings, recordingPath, replayRecording } from './replay.js';
+import { hasApiKey } from './tinyfish/client.js';
 
 function defaultRecording() {
   return existsSync(recordingPath('demo-golden')) ? 'demo-golden' : 'fake-run';
@@ -30,7 +31,7 @@ export function createApp({ record = true } = {}) {
     res.json({
       ok: true,
       modes: Object.keys(starters),
-      tinyfishKeyPresent: Boolean(process.env.TINYFISH_API_KEY),
+      tinyfishKeyPresent: hasApiKey(),
       opportunities: process.env.OPPORTUNITIES !== 'off',
     });
   });

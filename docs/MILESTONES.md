@@ -134,15 +134,27 @@ Time budget for 24 h: S1 about 4 h → S2 about 4 h → S3 about 5 h → S4 abou
 
 ---
 
-## Stage 5: Opportunities district and Watchtower ⏭ skipped for now (planned)
+## Stage 5: Opportunities district and Watchtower ✅ slim version done (tech round)
 
-Skipped to keep the night's budget; nothing depends on it. With no `opps-scout` the district stays idle scenery, and the Watchtower beacon is decorative. The plan lists both under "Sources not used tonight".
+### Done ✅
+- ✅ Opportunities scout (`liveRun.js` + `parse/opps.js`): the Devpost and HackerEarth JSON feeds (both "keep" in the team's opportunities-source-report). Dates come only from the feeds (Devpost submission end; HackerEarth `end_tz`, marked "needs verification"). Online or India events that are still open are kept, and women-only or closed events go to "Not applicable".
+- ✅ Plan screen: Scholarships and Opportunities tabs, each ranked by deadline with its own "Why this ranking". Prize pools are shown only as listed on Devpost.
+- ✅ Watchtower: **"Re-check now"** (`POST /api/recheck`). It re-fetches the plan's sources through the Gatekeeper with the cache bypassed and re-reads each date with the same parser. It flags "changed since last check" only when a date differs or an item is no longer listed. Otherwise it says "no changes found". Only known source hosts. Tests for the diff logic.
+- ✅ The mock run already included 6 hackathons from recon.
 
-### Planned tasks (unchanged)
-1. `agents/oppsScout.js` + `parse/opps.js`: Fetch Devfolio, MLH, the Devpost JSON and the HackerEarth JSON in one request. Search Unstop, then Fetch its detail pages with `include_selectors: ["main"]` (RECON_FINDINGS §4). Keep events that are online or in India, still open, and open to UG students. Use honest `deadlineLabel`s.
-2. `scripts/setupMonitor.js`: create the Monitor once and print `MONITOR_ID` for `.env`.
-3. `agents/watchtower.js`: run now, re-parse with `parse/nsp.js`, diff against `server/.cache/watchtower.json`, and emit `watchtower.checked` or `watchtower.change`.
-4. Web: the district lights up for `opps-scout`, the Watchtower beacon shows checked/changed states, and the plan shows hackathon rows with their tag.
+### Still planned
+- Unstop, Hack2skill, Devfolio and MLH (reasons in the plan's "Sources not used").
+- Scheduled Watchtower checks (TinyFish Monitor), notifications, and a lit-up beacon on changes.
+
+## Tech round additions ✅
+- ✅ `docs/AGENT_AUDIT.md`: inventory and 10-role roster (no LLM anywhere).
+- ✅ **Gatekeeper** (`tinyfish/gatekeeper.js`): disk cache with TTL, 2 concurrent calls, per-host interval, backoff with jitter, robots.txt, block stop, stale-cache fallback. Events: `cache.hit`, `cache.miss`, `rate.limited`, `blocked`, `fallback` (tests with mocked responses).
+- ✅ **Verifier** (`verify/verifier.js`): re-fetches every plan item (cache bypassed) and badges it verified, changed or could not verify. Nothing is dropped. Tests with fixture pages.
+- ✅ **Profiler** (`profile/profiler.js`): sample student → criteria for the Judge. Income, CAP admission, domicile proof and more are shown as "unknown, needs your input".
+- ✅ API: `/api/run`, `/api/run/:id/events`, `/api/run/:id/plan`, `/api/kit/:schemeId`, `/api/recheck`, `/api/health` (cache stats, last run) → [API.md](API.md).
+- ✅ System view (`?tech`) and [TECHNICAL_OVERVIEW.md](TECHNICAL_OVERVIEW.md), [JUDGE_QA_TECH.md](JUDGE_QA_TECH.md).
+- ✅ New `recordings/real-run.jsonl` (18 items, all verified at capture); the previous recordings are kept in `recordings/backup/`.
+- Tests: server 43, web 5. Frame time (`?stats`, render only): about 2.3 ms at 1920×912, 122 draw calls with 8 agents, on an AMD Radeon integrated GPU.
 
 ---
 

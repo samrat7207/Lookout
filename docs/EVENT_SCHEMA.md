@@ -46,6 +46,12 @@ IDs:
 | `kit.ready` | Town Hall has built an Application Kit for a scholarship in the plan | **ApplicationKit** (below) |
 | `watchtower.checked` | A Monitor run finished with no date changes | `{ monitorId, checkedAt, schemesTracked: n }` |
 | `watchtower.change` | A date differs from the last snapshot | `{ monitorId, changes: [{ scheme, field, from, to }], sourceUrl }` |
+| `profile.ready` | The Profiler has read the profile | `{ label, criteria, known: [{field,label,value}], unknown: [{field,label,why,value:"unknown, needs your input"}] }` |
+| `verify.result` | The Verifier re-checked one plan item | `{ opportunityId, title, status: "verified"\|"changed"\|"unverified", reason, checkedAt, sourceUrl }` |
+| `cache.hit` / `cache.miss` | Gatekeeper: served from cache / fetched live | `{ url \| call, ageMs?, fetchedAt? }` |
+| `rate.limited` | Gatekeeper is backing off | `{ call, attempt, retryInMs, reason }` |
+| `blocked` | Gatekeeper stopped for a host (403/429, bot block, captcha, robots.txt) | `{ host, url, reason, stoppedForHost }` |
+| `fallback` | Gatekeeper used an older cached copy after a failed fetch | `{ url \| call, reason, usingCacheFrom }` |
 | `run.complete` | Everything has settled (the Deep Diver may still be out) | `{ durationMs, findings: n, errors: n }` |
 | `run.failed` | An unrecoverable error occurred (should be rare) | `{ message }` |
 

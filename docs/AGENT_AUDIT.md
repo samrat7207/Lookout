@@ -45,3 +45,20 @@ An honest inventory of what exists in the code today, and how it maps to the 10-
 - No LLM decides anything. Eligibility is keyword and rule code, which is why some items say "needs verification" or "unclear".
 - Scouts are async functions in one process, not separate services. "Parallel" means `Promise.all` over network calls.
 - Mock mode replays a scripted run built from recon data. Replay mode replays a recorded real run. Only Live makes network calls.
+
+## 4. After the tech-round changes
+
+| # | Role | Status now | Where |
+|---|---|---|---|
+| 1 | Orchestrator (Mayor) | **partial** (fixed source list; no profile-driven source choice; retries are in the Gatekeeper) | `liveRun.js` |
+| 2 | Source Scouts | **exists** (NSP, MahaDBT, Buddy4Study, Opportunities) | `liveRun.js` |
+| 3 | Deadline Reader | **exists** for dates and amounts; documents still **missing** | `parse/*.js` |
+| 4 | Eligibility Judge | **exists**, fed by the new Profiler | `rank/rules.js`, `profile/profiler.js` |
+| 5 | Ranker | **exists** | `rank/ranker.js` |
+| 6 | Conflict Checker | **exists** | `rank/conflicts.js` |
+| 7 | Kit Builder | **exists** | `kit/buildKit.js` |
+| 8 | Verifier | **exists** | `verify/verifier.js` |
+| 9 | Gatekeeper | **exists** | `tinyfish/gatekeeper.js` |
+| 10 | Watchtower | **exists, on request only** (no schedules) | `watch/watchtower.js`, `POST /api/recheck` |
+
+Still no LLM anywhere.

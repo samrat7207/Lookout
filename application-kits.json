@@ -1,0 +1,489 @@
+{
+  "_header": {
+    "what": "Application Kit data for the sample student: documents to gather, form fields (with safe persona values), step list, deadline and official source for each best-matching scholarship. Draft: nothing here is verified yet.",
+    "owner": "Aman Kumar. Commit this file to team/aman/application-kits.json from your own git account, after you verify it.",
+    "lookout_feature": "Application Kit (PRD P0-10, MILESTONES Stage 4). The kit drawer renders these; Stage 3's server/src/kit/buildKit.js uses the documents/steps here instead of generic 'usually needed' items.",
+    "shape": "Each entry in kits[] follows the ApplicationKit shape in docs/EVENT_SCHEMA.md (id, opportunityId, title, deadline, daysLeft, sourceUrl, applyUrl, documents[], fields[], steps[], safety, generatedFrom). Authoring-only fields added on top: category, deadline_reason, read_on, verified, needs_verification, field_labels_needs_verification, steps_sources[], notes[]. Strip them (or ignore them) when emitting kit.ready.",
+    "persona": { "label": "sample student", "gender": "Male", "course": "B.Tech Computer Engineering", "year_of_study": 2, "category": "OBC", "state": "Maharashtra" },
+    "how_this_draft_was_made": "Prepared for the team on 2026-10-24 from live TinyFish Fetch/Search reads of the official pages listed in each entry (plus docs/RECON_FINDINGS.md). daysLeft is counted from 2026-10-24. Anything not read from a real page is marked needs_verification: true.",
+    "safety": "Read-only and prefill-only. Lookout never submits forms and never asks for, enters or stores passwords, OTPs or Aadhaar numbers. Every sensitive field has value null and is marked sensitive: true. Do not add real IDs, account numbers, passwords or OTPs to this file, not even as examples.",
+    "verify_before_commit": [
+      "Every deadline against the official page on the day you commit (NSP dates can be extended).",
+      "Every documents[] item marked needs_verification: true (HDFC, ServiceScape and Tata Pankh document lists were NOT on the pages read; open each sub-scheme's 'View Details' page).",
+      "The applyUrl for MahaDBT 2.0 (the site returned proxy_error twice; we could not read it).",
+      "PM YASASVI College: whether the student's institute is on the notified 'Top Class' list (the list itself was not read).",
+      "PM-USP CSSS: the FAQ line about renewal for technical degrees, which seems to contradict the guideline (see notes in that entry).",
+      "Field labels in fields[] are generic (the real forms are behind login). Check them against what the portal shows after you log in yourself."
+    ]
+  },
+  "tasks_for_owner": [
+    "Open every sourceUrl and every documents[].from link and check each item against the official page. Fix anything that is wrong.",
+    "Set verified: true on an entry ONLY after you have checked all of it yourself. Leave it false otherwise.",
+    "For items with needs_verification: true, either confirm them from an official page (add the URL and the read_on date, set needs_verification: false) or delete them.",
+    "Add 2 or more schemes that are missing (ideas: a Vidyasaarathi scheme open to Maharashtra B.Tech students when one opens; an AICTE scheme the persona qualifies for; a MahaDBT DTE scheme for OBC students if one exists). Use the template entry.",
+    "Keep every sensitive field's value null. Never paste real Aadhaar numbers, bank details, passwords or OTPs.",
+    "Keep this file in step with team/aman/eligibility-rules.json (same ids)."
+  ],
+  "template": {
+    "id": "kit:<source>:<slug>",
+    "opportunityId": "<source>:<slug>",
+    "category": "central | state | private",
+    "title": "<exact scheme name as on the official page>",
+    "deadline": "YYYY-MM-DD or null",
+    "deadline_reason": "required when deadline is null: why no date is published",
+    "daysLeft": null,
+    "sourceUrl": "<page the scheme and its date were read from>",
+    "applyUrl": "<where the student applies>",
+    "read_on": "YYYY-MM-DD",
+    "verified": false,
+    "needs_verification": true,
+    "documents": [
+      { "name": "<document>", "why": "<rule it satisfies>", "from": "<URL it was read from, or null>", "read_on": "YYYY-MM-DD", "needs_verification": true }
+    ],
+    "field_labels_needs_verification": true,
+    "fields": [
+      { "label": "Course", "value": "B.Tech Computer Engineering", "from": "persona" },
+      { "label": "Annual family income (all sources)", "value": null, "from": "student" },
+      { "label": "Aadhaar number", "value": null, "from": "student", "sensitive": true, "note": "Enter on the official portal yourself. Lookout never asks for, enters or stores it." }
+    ],
+    "steps": ["<step 1>", "<step 2>"],
+    "steps_sources": [{ "step": 1, "from": "<URL>", "read_on": "YYYY-MM-DD", "needs_verification": true }],
+    "safety": "Lookout never submits forms and never asks for, enters or stores passwords, OTPs or Aadhaar numbers.",
+    "generatedFrom": ["<URL>"],
+    "notes": []
+  },
+  "kits": [
+    {
+      "id": "kit:nsp:pm-yasasvi-college-obc-ebc-dnt",
+      "opportunityId": "nsp:pm-yasasvi-college-obc-ebc-dnt",
+      "category": "central",
+      "title": "PM YASASVI Central Sector Scheme Of Top Class Education In College For OBC, EBC And DNT Students",
+      "deadline": "2026-10-31",
+      "daysLeft": 7,
+      "sourceUrl": "https://scholarships.gov.in/All-Scholarships",
+      "applyUrl": "https://scholarships.gov.in/",
+      "read_on": "2026-10-24",
+      "verified": false,
+      "needs_verification": true,
+      "documents": [
+        { "name": "Income certificate (family income up to Rs 2.50 lakh)", "why": "Eligibility 3(i) and application 6(iii)", "from": "https://scholarships.gov.in/public/schemeGuidelines/ApprovedmodifieddraftofTopClassCollege.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Caste certificate (OBC)", "why": "Application 6(iii)", "from": "https://scholarships.gov.in/public/schemeGuidelines/ApprovedmodifieddraftofTopClassCollege.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Admission rank (entrance exam rank, e.g. JEE Main for NITs/IIITs per Annexure-I)", "why": "Application 6(iii); merit list per Annexure-I", "from": "https://scholarships.gov.in/public/schemeGuidelines/ApprovedmodifieddraftofTopClassCollege.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Fee details (fee receipt / fee structure from the institute)", "why": "Application 6(iii)", "from": "https://scholarships.gov.in/public/schemeGuidelines/ApprovedmodifieddraftofTopClassCollege.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Bank account in the student's own name (details entered on NSP by the student)", "why": "Application 6(iii); payment by DBT 5(iv)", "from": "https://scholarships.gov.in/public/schemeGuidelines/ApprovedmodifieddraftofTopClassCollege.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Affidavit to the institution: not the third sibling availing the scheme", "why": "Eligibility 3(vi)", "from": "https://scholarships.gov.in/public/schemeGuidelines/ApprovedmodifieddraftofTopClassCollege.pdf", "read_on": "2026-10-24", "needs_verification": false }
+      ],
+      "field_labels_needs_verification": true,
+      "fields": [
+        { "label": "Course", "value": "B.Tech Computer Engineering", "from": "persona" },
+        { "label": "Year of study", "value": "2nd year", "from": "persona" },
+        { "label": "Social category", "value": "OBC", "from": "persona" },
+        { "label": "Domicile state", "value": "Maharashtra", "from": "persona" },
+        { "label": "Gender", "value": "Male", "from": "persona" },
+        { "label": "Annual family income (all sources)", "value": null, "from": "student" },
+        { "label": "Institute name / AISHE code", "value": null, "from": "student" },
+        { "label": "Entrance exam and rank", "value": null, "from": "student" },
+        { "label": "Aadhaar number", "value": null, "from": "student", "sensitive": true, "note": "Used by NSP for OTR. Enter on NSP yourself. Lookout never asks for, enters or stores it." },
+        { "label": "OTP sent to your mobile", "value": null, "from": "student", "sensitive": true, "note": "Enter on NSP yourself. Lookout never asks for it." },
+        { "label": "Bank account and IFSC", "value": null, "from": "student", "sensitive": true, "note": "Enter on NSP yourself. Lookout never asks for it." }
+      ],
+      "steps": [
+        "Check that your institute is on the notified 'Top Class' list for this scheme and has slots for your course. Only notified institutions are covered, and 2nd-year students get leftover slots only.",
+        "Get your One Time Registration (OTR) on NSP yourself. OTR is a 14-digit number generated from Aadhaar; CSC centres can do it for Rs 30.",
+        "Log in to NSP with your OTR and choose this scheme. You may apply for only ONE merit-based scheme in AY 2026-27 (this one and PM-USP CSSS are both merit-based).",
+        "Upload the income certificate and caste certificate, and enter your bank details, admission rank and fee details.",
+        "Submit before 31 Oct 2026. Your institute must verify by 15 Nov 2026.",
+        "Re-apply every year (renewal is not automatic)."
+      ],
+      "steps_sources": [
+        { "step": 1, "from": "https://scholarships.gov.in/public/schemeGuidelines/ApprovedmodifieddraftofTopClassCollege.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 2, "from": "https://scholarships.gov.in/", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 3, "from": "https://scholarships.gov.in/", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 4, "from": "https://scholarships.gov.in/public/schemeGuidelines/ApprovedmodifieddraftofTopClassCollege.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 5, "from": "https://scholarships.gov.in/All-Scholarships", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 6, "from": "https://scholarships.gov.in/public/schemeGuidelines/ApprovedmodifieddraftofTopClassCollege.pdf", "read_on": "2026-10-24", "needs_verification": false }
+      ],
+      "safety": "Lookout never submits forms and never asks for, enters or stores passwords, OTPs or Aadhaar numbers.",
+      "generatedFrom": [
+        "https://scholarships.gov.in/All-Scholarships",
+        "https://scholarships.gov.in/",
+        "https://scholarships.gov.in/public/schemeGuidelines/ApprovedmodifieddraftofTopClassCollege.pdf"
+      ],
+      "notes": [
+        "The guideline (6(ii)) says institute verification closes 31 Oct every year 'or the date decided by DBT Mission'; NSP shows 15-11-2026. We use NSP's date.",
+        "The notified institution list was not read. That is the biggest open question for this persona."
+      ]
+    },
+    {
+      "id": "kit:nsp:pm-usp-csss",
+      "opportunityId": "nsp:pm-usp-csss",
+      "category": "central",
+      "title": "PM-USP – Central Sector Scheme Of Scholarship For College And University Students (CSSS) — renewal",
+      "deadline": "2026-10-31",
+      "daysLeft": 7,
+      "sourceUrl": "https://scholarships.gov.in/All-Scholarships",
+      "applyUrl": "https://scholarships.gov.in/",
+      "read_on": "2026-10-24",
+      "verified": false,
+      "needs_verification": true,
+      "documents": [
+        { "name": "Previous year marksheet (at least 50% marks)", "why": "Renewal criterion, guideline 4(viii); FAQ: renewal applicants 'provide necessary marksheets'", "from": "https://scholarships.gov.in/public/schemeGuidelines/FAQ_DOHE_CSSS.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Proof of at least 75% attendance (verified by the institute)", "why": "Renewal criterion, guideline 4(viii)", "from": "https://scholarships.gov.in/public/schemeGuidelines/CSSS_GUIDLINES_07022024_updated.pdf", "read_on": "2026-10-24", "needs_verification": true },
+        { "name": "Bank account in the student's own name, Aadhaar-seeded", "why": "Payment by DBT, guideline 8; FAQ on Aadhaar seeding", "from": "https://scholarships.gov.in/public/schemeGuidelines/CSSS_GUIDLINES_07022024_updated.pdf", "read_on": "2026-10-24", "needs_verification": false }
+      ],
+      "field_labels_needs_verification": true,
+      "fields": [
+        { "label": "Course", "value": "B.Tech Computer Engineering", "from": "persona" },
+        { "label": "Year of study", "value": "2nd year", "from": "persona" },
+        { "label": "Social category", "value": "OBC", "from": "persona" },
+        { "label": "Domicile state", "value": "Maharashtra", "from": "persona" },
+        { "label": "Gender", "value": "Male", "from": "persona" },
+        { "label": "Previous year marks (%)", "value": null, "from": "student" },
+        { "label": "Institute name / AISHE code", "value": null, "from": "student" },
+        { "label": "Aadhaar number", "value": null, "from": "student", "sensitive": true, "note": "Enter on NSP yourself. Lookout never asks for, enters or stores it." },
+        { "label": "OTP sent to your mobile", "value": null, "from": "student", "sensitive": true, "note": "Enter on NSP yourself. Lookout never asks for it." },
+        { "label": "Bank account and IFSC", "value": null, "from": "student", "sensitive": true, "note": "Enter on NSP yourself. Lookout never asks for it." }
+      ],
+      "steps": [
+        "Only for students who got the FRESH CSSS award in 1st year. Fresh awards go by the Class XII board's top-20-percentile list, so a 2nd-year student cannot apply fresh.",
+        "Check you are NOT taking a state scholarship, fee waiver or reimbursement (e.g. MahaDBT OBC freeship). CSSS rule 4(iv) excludes those.",
+        "Log in to NSP with your OTR and open the renewal application.",
+        "Enter last year's marks (at least 50%) and attendance (at least 75%).",
+        "Submit the renewal before 31 Oct 2026 (NSP shows renewals open till 31-10-2026; institute verification till 15-11-2026)."
+      ],
+      "steps_sources": [
+        { "step": 1, "from": "https://scholarships.gov.in/public/schemeGuidelines/FAQ_DOHE_CSSS.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 2, "from": "https://scholarships.gov.in/public/schemeGuidelines/CSSS_GUIDLINES_07022024_updated.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 3, "from": "https://scholarships.gov.in/", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 4, "from": "https://scholarships.gov.in/public/schemeGuidelines/CSSS_GUIDLINES_07022024_updated.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 5, "from": "https://scholarships.gov.in/All-Scholarships", "read_on": "2026-10-24", "needs_verification": false }
+      ],
+      "safety": "Lookout never submits forms and never asks for, enters or stores passwords, OTPs or Aadhaar numbers.",
+      "generatedFrom": [
+        "https://scholarships.gov.in/All-Scholarships",
+        "https://scholarships.gov.in/public/schemeGuidelines/CSSS_GUIDLINES_07022024_updated.pdf",
+        "https://scholarships.gov.in/public/schemeGuidelines/FAQ_DOHE_CSSS.pdf"
+      ],
+      "notes": [
+        "UNCLEAR: the FAQ says renewal runs 'up to Post Graduate level (except for the students pursuing technical courses leading to degree at graduation level)', but guideline section 7 pays B.Tech students Rs 12,000 in years 1-3 and Rs 20,000 in year 4. Verify which applies before telling a B.Tech student to renew.",
+        "Rate per guideline 7: Rs 12,000 per year for years 1-3 of B.Tech, Rs 20,000 in year 4."
+      ]
+    },
+    {
+      "id": "kit:nsp:aicte-swanath-technical-degree",
+      "opportunityId": "nsp:aicte-swanath-technical-degree",
+      "category": "central",
+      "title": "AICTE - Swanath Scholarship Scheme (Technical Degree)",
+      "deadline": "2026-10-31",
+      "daysLeft": 7,
+      "sourceUrl": "https://scholarships.gov.in/All-Scholarships",
+      "applyUrl": "https://scholarships.gov.in/",
+      "read_on": "2026-10-24",
+      "verified": false,
+      "needs_verification": true,
+      "documents": [
+        { "name": "Proof of the qualifying category: death certificates of both parents or Tehsildar/SDM certificate (orphan); death certificate stating Covid-19 (Covid); death certificate + Shaheed certificate (Armed Forces/CAPF martyr)", "why": "Guideline 10.0 A/B/C", "from": "https://scholarships.gov.in/public/schemeGuidelines/AICTE/AICTE_3039_G.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Proof for the fourth category (parent with critical life-threatening disease, or died/severely disabled above 80% in an accident)", "why": "Eligibility 2.0(1)(iv); section 10.0 lists no documents for this category", "from": null, "read_on": "2026-10-24", "needs_verification": true },
+        { "name": "Current year income certificate showing family income below Rs 8 lakh (State/UT issued)", "why": "Eligibility 2.0(2); 10.0 B(ii), C(vi)", "from": "https://scholarships.gov.in/public/schemeGuidelines/AICTE/AICTE_3039_G.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Bonafide certificate issued by the institution", "why": "10.0 A(ii), B(iii), C(iii)", "from": "https://scholarships.gov.in/public/schemeGuidelines/AICTE/AICTE_3039_G.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Class 12 (10+2) and Class 10 marksheets", "why": "10.0 A(iii), B(iv), C(iv); selection on 10+2 merit (5.0)", "from": "https://scholarships.gov.in/public/schemeGuidelines/AICTE/AICTE_3039_G.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Category certificate (OBC-NCL)", "why": "10.0 A(v), B(vi), C(vii)", "from": "https://scholarships.gov.in/public/schemeGuidelines/AICTE/AICTE_3039_G.pdf", "read_on": "2026-10-24", "needs_verification": false }
+      ],
+      "field_labels_needs_verification": true,
+      "fields": [
+        { "label": "Course", "value": "B.Tech Computer Engineering", "from": "persona" },
+        { "label": "Year of study", "value": "2nd year", "from": "persona" },
+        { "label": "Social category", "value": "OBC", "from": "persona" },
+        { "label": "Domicile state", "value": "Maharashtra", "from": "persona" },
+        { "label": "Gender", "value": "Male", "from": "persona" },
+        { "label": "Swanath category (orphan / Covid / martyr / critical illness or accident)", "value": null, "from": "student" },
+        { "label": "Annual family income (all sources)", "value": null, "from": "student" },
+        { "label": "Class 12 percentage", "value": null, "from": "student" },
+        { "label": "Aadhaar number", "value": null, "from": "student", "sensitive": true, "note": "Mandatory for this scheme (11.0(3)). Enter on NSP yourself. Lookout never asks for, enters or stores it." },
+        { "label": "OTP sent to your mobile", "value": null, "from": "student", "sensitive": true, "note": "Enter on NSP yourself. Lookout never asks for it." },
+        { "label": "Bank account and IFSC", "value": null, "from": "student", "sensitive": true, "note": "Enter on NSP yourself. Lookout never asks for it." }
+      ],
+      "steps": [
+        "Check you fall into one of the four Swanath categories AND family income is at most Rs 8 lakh. This scheme is for those circumstances only.",
+        "Check you are not receiving any other Central, State or AICTE scholarship (2.0(4)).",
+        "Apply on NSP with your OTR and upload the documents for your category.",
+        "Submit before 31 Oct 2026. Your institute verifies first, then the state Directorate of Technical Education.",
+        "A 2nd-year degree student can receive it for up to 3 years (4.0), renewed yearly with a promotion and bonafide certificate."
+      ],
+      "steps_sources": [
+        { "step": 1, "from": "https://scholarships.gov.in/public/schemeGuidelines/AICTE/AICTE_3039_G.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 2, "from": "https://scholarships.gov.in/public/schemeGuidelines/AICTE/AICTE_3039_G.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 3, "from": "https://scholarships.gov.in/public/schemeGuidelines/AICTE/AICTE_3039_G.pdf", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 4, "from": "https://scholarships.gov.in/All-Scholarships", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 5, "from": "https://scholarships.gov.in/public/schemeGuidelines/AICTE/AICTE_3039_G.pdf", "read_on": "2026-10-24", "needs_verification": false }
+      ],
+      "safety": "Lookout never submits forms and never asks for, enters or stores passwords, OTPs or Aadhaar numbers.",
+      "generatedFrom": [
+        "https://scholarships.gov.in/All-Scholarships",
+        "https://scholarships.gov.in/public/schemeGuidelines/AICTE/AICTE_3039_G.pdf"
+      ],
+      "notes": [
+        "The guideline PDF is dated May 2025 (its own cover). Check whether a 2026-27 version exists.",
+        "Mapping of AICTE_3039_G.pdf to the Technical Degree scheme is inferred from the link order on All-Scholarships; the PDF covers both degree and diploma, so the content applies either way."
+      ]
+    },
+    {
+      "id": "kit:mahadbt:post-matric-obc",
+      "opportunityId": "mahadbt:post-matric-obc",
+      "category": "state",
+      "title": "Post Matric Scholarship to OBC Students (Maharashtra)",
+      "deadline": null,
+      "deadline_reason": "Not published on the MahaDBT 1.0 scheme page. MahaDBT says AY 2026-27 fresh and renewal applications are accepted only through MahaDBT 2.0, which we could not read (proxy_error twice).",
+      "daysLeft": null,
+      "sourceUrl": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E",
+      "applyUrl": "https://mahadbt2.maharashtra.gov.in/",
+      "read_on": "2026-10-24",
+      "verified": false,
+      "needs_verification": true,
+      "documents": [
+        { "name": "Caste certificate issued by the competent authority (Govt. of Maharashtra); also counts as proof of residence", "why": "Documents Required 1", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Income certificate / income declaration from the competent authority", "why": "Documents Required 2; income up to Rs 2.50 lakh (Eligibility 1)", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Caste validity certificate (mandatory for professional degree courses such as B.Tech)", "why": "Documents Required 3", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "HSC or SSC marksheet, or last examination marksheet", "why": "Documents Required 4", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Gap certificate (only if there is a gap)", "why": "Documents Required 5", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Ration card (to identify the number of children in the family)", "why": "Documents Required 7; two-children rule (Eligibility 7)", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Leaving certificate", "why": "Documents Required 8", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Parents'/guardian's declaration about the number of children beneficiaries", "why": "Documents Required 9", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Father's/guardian's death certificate (only if applicable)", "why": "Documents Required 6", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "needs_verification": false }
+      ],
+      "field_labels_needs_verification": true,
+      "fields": [
+        { "label": "Course", "value": "B.Tech Computer Engineering", "from": "persona" },
+        { "label": "Year of study", "value": "2nd year", "from": "persona" },
+        { "label": "Social category", "value": "OBC", "from": "persona" },
+        { "label": "Domicile state", "value": "Maharashtra", "from": "persona" },
+        { "label": "Gender", "value": "Male", "from": "persona" },
+        { "label": "Annual family income (all sources)", "value": null, "from": "student" },
+        { "label": "Admission through CAP round (yes/no)", "value": null, "from": "student" },
+        { "label": "Hosteller or day scholar", "value": null, "from": "student" },
+        { "label": "Aadhaar number", "value": null, "from": "student", "sensitive": true, "note": "Enter on MahaDBT yourself. Lookout never asks for, enters or stores it." },
+        { "label": "Portal password", "value": null, "from": "student", "sensitive": true, "note": "Create it on MahaDBT yourself. Lookout never asks for it." },
+        { "label": "OTP sent to your mobile", "value": null, "from": "student", "sensitive": true, "note": "Enter on MahaDBT yourself. Lookout never asks for it." },
+        { "label": "Bank account and IFSC (Aadhaar-seeded)", "value": null, "from": "student", "sensitive": true, "note": "Enter on MahaDBT yourself. Lookout never asks for it." }
+      ],
+      "steps": [
+        "AY 2026-27 applications are accepted only on MahaDBT 2.0. Register or log in there yourself.",
+        "Check eligibility: OBC, Maharashtra resident, family income up to Rs 2.50 lakh, professional course admission through the CAP round, 75% attendance this year.",
+        "Choose 'Post Matric Scholarship to OBC Students' and upload the documents listed above.",
+        "No deadline is published on the scheme page. Watch the MahaDBT 2.0 notices for the AY 2026-27 last date."
+      ],
+      "steps_sources": [
+        { "step": 1, "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 2, "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 3, "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "needs_verification": true },
+        { "step": 4, "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "needs_verification": false }
+      ],
+      "safety": "Lookout never submits forms and never asks for, enters or stores passwords, OTPs or Aadhaar numbers.",
+      "generatedFrom": [
+        "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E",
+        "https://mahadbt.maharashtra.gov.in/"
+      ],
+      "notes": [
+        "The SchemeData?str= token is opaque and may change. If the link breaks, find the scheme again from the MahaDBT landing page menu (OBC, SEBC, VJNT & SBC Welfare Department).",
+        "Benefits for unaided professional colleges: 50% tuition and exam fees plus maintenance allowance (Benefits 9). Step 3's exact menu label on MahaDBT 2.0 is unverified."
+      ]
+    },
+    {
+      "id": "kit:mahadbt:tuition-exam-fees-obc",
+      "opportunityId": "mahadbt:tuition-exam-fees-obc",
+      "category": "state",
+      "title": "Tuition Fees and Examination Fees to OBC Students (Maharashtra freeship)",
+      "deadline": null,
+      "deadline_reason": "The scheme page says the end date depends on the last date of examination and varies each academic year; no date is published. AY 2026-27 applications go through MahaDBT 2.0 only.",
+      "daysLeft": null,
+      "sourceUrl": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63",
+      "applyUrl": "https://mahadbt2.maharashtra.gov.in/",
+      "read_on": "2026-10-24",
+      "verified": false,
+      "needs_verification": true,
+      "documents": [
+        { "name": "Caste certificate issued by the competent authority", "why": "Documents Required 1", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Income certificate / non-creamy layer certificate", "why": "Documents Required 2", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "CAP allotment letter (professional courses)", "why": "Documents Required 7; CAP admission mandatory (Eligibility 10)", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Caste validity certificate (professional courses, per GR dated 31 July 2008)", "why": "Documents Required 8", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "HSC or SSC marksheet, or last examination marksheet", "why": "Documents Required 3", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Gap certificate (only if there is a gap)", "why": "Documents Required 4", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Parents'/guardian's declaration about the number of children beneficiaries", "why": "Documents Required 5", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Leaving certificate", "why": "Documents Required 9", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Ration card (number of children in the family)", "why": "Documents Required 10", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Father's death certificate (only if applicable)", "why": "Documents Required 6", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "needs_verification": false }
+      ],
+      "field_labels_needs_verification": true,
+      "fields": [
+        { "label": "Course", "value": "B.Tech Computer Engineering", "from": "persona" },
+        { "label": "Year of study", "value": "2nd year", "from": "persona" },
+        { "label": "Social category", "value": "OBC", "from": "persona" },
+        { "label": "Domicile state", "value": "Maharashtra", "from": "persona" },
+        { "label": "Gender", "value": "Male", "from": "persona" },
+        { "label": "Annual family income (all sources)", "value": null, "from": "student" },
+        { "label": "College type (government / aided / unaided / deemed)", "value": null, "from": "student" },
+        { "label": "Admission through CAP round (yes/no)", "value": null, "from": "student" },
+        { "label": "Aadhaar number", "value": null, "from": "student", "sensitive": true, "note": "Enter on MahaDBT yourself. Lookout never asks for, enters or stores it." },
+        { "label": "Portal password", "value": null, "from": "student", "sensitive": true, "note": "Create it on MahaDBT yourself. Lookout never asks for it." },
+        { "label": "OTP sent to your mobile", "value": null, "from": "student", "sensitive": true, "note": "Enter on MahaDBT yourself. Lookout never asks for it." },
+        { "label": "Bank account and IFSC (Aadhaar-seeded)", "value": null, "from": "student", "sensitive": true, "note": "Enter on MahaDBT yourself. Lookout never asks for it." }
+      ],
+      "steps": [
+        "AY 2026-27 applications are accepted only on MahaDBT 2.0. Register or log in there yourself.",
+        "Check eligibility: OBC, Maharashtra resident, degree engineering admission through the CAP round. Deemed-university admissions are not covered.",
+        "Choose 'Tuition Fees and Examination Fees to OBC Students' and upload the documents listed above.",
+        "For a male student in an unaided college, 50% of tuition and exam fees are reimbursed (100% in government/aided colleges)."
+      ],
+      "steps_sources": [
+        { "step": 1, "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 2, "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 3, "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "needs_verification": true },
+        { "step": 4, "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "needs_verification": false }
+      ],
+      "safety": "Lookout never submits forms and never asks for, enters or stores passwords, OTPs or Aadhaar numbers.",
+      "generatedFrom": [
+        "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63"
+      ],
+      "notes": [
+        "The scheme page states NO income ceiling. The documents list mentions a non-creamy layer certificate. Confirm the income rule from the Government Resolution linked on the page before the ranker uses one.",
+        "Taking this freeship conflicts with PM-USP CSSS rule 4(iv) (no state fee reimbursement). The plan should warn the student."
+      ]
+    },
+    {
+      "id": "kit:buddy4study:hdfc-parivartan-ecss-ug",
+      "opportunityId": "buddy4study:hdfc-parivartan-ecss-ug",
+      "category": "private",
+      "title": "Parivartan ECSS Programme for Undergraduate Students (Merit-cum-Need Based) 2026-27 (HDFC Bank)",
+      "deadline": "2026-10-31",
+      "daysLeft": 7,
+      "sourceUrl": "https://www.buddy4study.com/page/hdfc-bank-parivartans-ecss-programme",
+      "applyUrl": "https://www.buddy4study.com/page/hdfc-bank-parivartans-ecss-programme",
+      "read_on": "2026-10-24",
+      "verified": false,
+      "needs_verification": true,
+      "documents": [
+        { "name": "Marksheet of the most recent qualifying examination (at least 55%)", "why": "Eligibility: minimum 55% marks", "from": "https://www.buddy4study.com/page/hdfc-bank-parivartans-ecss-programme", "read_on": "2026-10-24", "needs_verification": true },
+        { "name": "Family income proof (income from all sources up to Rs 2.5 lakh)", "why": "Eligibility: income ceiling", "from": "https://www.buddy4study.com/page/hdfc-bank-parivartans-ecss-programme", "read_on": "2026-10-24", "needs_verification": true },
+        { "name": "Proof of current enrolment in a full-time UG programme (e.g. fee receipt or bonafide certificate)", "why": "Eligibility: currently enrolled full-time", "from": null, "read_on": "2026-10-24", "needs_verification": true },
+        { "name": "Proof of a personal or family crisis in the past three years (only if claiming preference)", "why": "Note on the page: preference for students facing a crisis", "from": null, "read_on": "2026-10-24", "needs_verification": true }
+      ],
+      "field_labels_needs_verification": true,
+      "fields": [
+        { "label": "Course", "value": "B.Tech Computer Engineering", "from": "persona" },
+        { "label": "Year of study", "value": "2nd year", "from": "persona" },
+        { "label": "Domicile state", "value": "Maharashtra", "from": "persona" },
+        { "label": "Gender", "value": "Male", "from": "persona" },
+        { "label": "Marks in last exam (%)", "value": null, "from": "student" },
+        { "label": "Annual family income (all sources)", "value": null, "from": "student" },
+        { "label": "Portal password", "value": null, "from": "student", "sensitive": true, "note": "Create it on Buddy4Study yourself. Lookout never asks for it." },
+        { "label": "OTP sent to your mobile", "value": null, "from": "student", "sensitive": true, "note": "Enter on Buddy4Study yourself. Lookout never asks for it." },
+        { "label": "Bank account and IFSC", "value": null, "from": "student", "sensitive": true, "note": "Enter on the provider's site yourself if asked. Lookout never asks for it." }
+      ],
+      "steps": [
+        "Open the HDFC Parivartan ECSS page on Buddy4Study and pick the 'Undergraduate Students' block (not School or Postgraduate).",
+        "Check eligibility: full-time UG (B.Tech is named), at least 55% in the last exam, family income up to Rs 2.5 lakh, Indian national.",
+        "Press 'Apply Now', sign up or log in yourself, and fill the form.",
+        "Submit before 31 Oct 2026. Professional UG award: Rs 50,000."
+      ],
+      "steps_sources": [
+        { "step": 1, "from": "https://www.buddy4study.com/page/hdfc-bank-parivartans-ecss-programme", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 2, "from": "https://www.buddy4study.com/page/hdfc-bank-parivartans-ecss-programme", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 3, "from": "https://www.buddy4study.com/page/hdfc-bank-parivartans-ecss-programme", "read_on": "2026-10-24", "needs_verification": true },
+        { "step": 4, "from": "https://www.buddy4study.com/page/hdfc-bank-parivartans-ecss-programme", "read_on": "2026-10-24", "needs_verification": false }
+      ],
+      "safety": "Lookout never submits forms and never asks for, enters or stores passwords, OTPs or Aadhaar numbers.",
+      "generatedFrom": ["https://www.buddy4study.com/page/hdfc-bank-parivartans-ecss-programme"],
+      "notes": [
+        "The page read has NO documents section. The documents above are inferred from the eligibility rules and are all needs_verification. Open the UG block's 'View Details' page for the real list.",
+        "Buddy4Study is a listing site, not HDFC Bank itself. Check whether HDFC publishes the scheme on its own site as well."
+      ]
+    },
+    {
+      "id": "kit:buddy4study:servicescape-2026",
+      "opportunityId": "buddy4study:servicescape-2026",
+      "category": "private",
+      "title": "ServiceScape Scholarship 2026 (essay competition, USD 1,000)",
+      "deadline": "2026-11-30",
+      "daysLeft": 37,
+      "sourceUrl": "https://www.buddy4study.com/scholarship/servicescape-scholarship",
+      "applyUrl": "https://www.servicescape.com/scholarship",
+      "read_on": "2026-10-24",
+      "verified": false,
+      "needs_verification": true,
+      "documents": [
+        { "name": "Original essay on the published topic", "why": "Selection is based on the essay's creativity, relevance and clarity", "from": "https://www.buddy4study.com/scholarship/servicescape-scholarship", "read_on": "2026-10-24", "needs_verification": false },
+        { "name": "Proof of enrolment at an accredited college or university", "why": "Eligibility: enrolled or accepted at an accredited college, university or trade school", "from": null, "read_on": "2026-10-24", "needs_verification": true }
+      ],
+      "field_labels_needs_verification": true,
+      "fields": [
+        { "label": "Course", "value": "B.Tech Computer Engineering", "from": "persona" },
+        { "label": "Year of study", "value": "2nd year", "from": "persona" },
+        { "label": "Essay topic", "value": null, "from": "student" },
+        { "label": "Portal password", "value": null, "from": "student", "sensitive": true, "note": "Create it on the provider's site yourself. Lookout never asks for it." }
+      ],
+      "steps": [
+        "Read the essay topic and rules on ServiceScape's own scholarship page.",
+        "Write an original essay.",
+        "Apply online and submit before 30 Nov 2026."
+      ],
+      "steps_sources": [
+        { "step": 1, "from": "https://www.buddy4study.com/scholarship/servicescape-scholarship", "read_on": "2026-10-24", "needs_verification": true },
+        { "step": 2, "from": "https://www.buddy4study.com/scholarship/servicescape-scholarship", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 3, "from": "https://www.buddy4study.com/scholarship/servicescape-scholarship", "read_on": "2026-10-24", "needs_verification": false }
+      ],
+      "safety": "Lookout never submits forms and never asks for, enters or stores passwords, OTPs or Aadhaar numbers.",
+      "generatedFrom": ["https://www.buddy4study.com/scholarship/servicescape-scholarship"],
+      "notes": [
+        "UNCLEAR: the Buddy4Study page lists Buddy4Study 'Register / Apply Now' steps but its FAQ says applications are submitted via the ServiceScape website. applyUrl points at servicescape.com/scholarship, which we did NOT read. Verify which one is right.",
+        "This is an international essay award, not means-tested. It suits the persona but is competitive (one winner)."
+      ]
+    },
+    {
+      "id": "kit:buddy4study:tata-capital-pankh-general-ug",
+      "opportunityId": "buddy4study:tata-capital-pankh-general-ug",
+      "category": "private",
+      "title": "Tata Capital Pankh Scholarship Programme for General Graduation / Polytechnic / Diploma / ITI Students (2026–27)",
+      "deadline": "2026-10-26",
+      "daysLeft": 2,
+      "sourceUrl": "https://www.buddy4study.com/page/the-tata-capital-pankh-scholarship-programme",
+      "applyUrl": "https://www.buddy4study.com/page/the-tata-capital-pankh-scholarship-programme",
+      "read_on": "2026-10-24",
+      "verified": false,
+      "needs_verification": true,
+      "documents": [
+        { "name": "Marksheet of the preceding class/semester/year (at least 60%)", "why": "Eligibility: 60% in the preceding year", "from": "https://www.buddy4study.com/page/the-tata-capital-pankh-scholarship-programme", "read_on": "2026-10-24", "needs_verification": true },
+        { "name": "Parental income proof (up to Rs 4 lakh from all sources)", "why": "Eligibility: income ceiling", "from": "https://www.buddy4study.com/page/the-tata-capital-pankh-scholarship-programme", "read_on": "2026-10-24", "needs_verification": true },
+        { "name": "Fee receipt (the award is a share of tuition/course fees)", "why": "Benefits are a percentage of tuition fees, capped", "from": null, "read_on": "2026-10-24", "needs_verification": true }
+      ],
+      "field_labels_needs_verification": true,
+      "fields": [
+        { "label": "Course", "value": "B.Tech Computer Engineering", "from": "persona" },
+        { "label": "Year of study", "value": "2nd year", "from": "persona" },
+        { "label": "Social category", "value": "OBC", "from": "persona" },
+        { "label": "Gender", "value": "Male", "from": "persona" },
+        { "label": "Marks in last exam (%)", "value": null, "from": "student" },
+        { "label": "Annual parental income (all sources)", "value": null, "from": "student" },
+        { "label": "Portal password", "value": null, "from": "student", "sensitive": true, "note": "Create it on Buddy4Study yourself. Lookout never asks for it." },
+        { "label": "OTP sent to your mobile", "value": null, "from": "student", "sensitive": true, "note": "Enter on Buddy4Study yourself. Lookout never asks for it." },
+        { "label": "Bank account and IFSC", "value": null, "from": "student", "sensitive": true, "note": "Enter on the provider's site yourself if asked. Lookout never asks for it." }
+      ],
+      "steps": [
+        "FIRST confirm that B.Tech counts as 'General Graduation' for this programme. If it does not, skip it.",
+        "Check: at least 60% last year, parental income up to Rs 4 lakh, not a child of Tata Capital or Buddy4Study staff.",
+        "Apply on Buddy4Study via the 2026-27 'General Graduation' block before 26 Oct 2026."
+      ],
+      "steps_sources": [
+        { "step": 1, "from": "https://www.buddy4study.com/page/the-tata-capital-pankh-scholarship-programme", "read_on": "2026-10-24", "needs_verification": true },
+        { "step": 2, "from": "https://www.buddy4study.com/page/the-tata-capital-pankh-scholarship-programme", "read_on": "2026-10-24", "needs_verification": false },
+        { "step": 3, "from": "https://www.buddy4study.com/page/the-tata-capital-pankh-scholarship-programme", "read_on": "2026-10-24", "needs_verification": false }
+      ],
+      "safety": "Lookout never submits forms and never asks for, enters or stores passwords, OTPs or Aadhaar numbers.",
+      "generatedFrom": ["https://www.buddy4study.com/page/the-tata-capital-pankh-scholarship-programme"],
+      "notes": [
+        "UNCLEAR ELIGIBILITY: the block is titled 'General Graduation' and gives B.Com, B.Sc, B.A as examples. It does not name or exclude B.Tech. Earlier Pankh editions (2021-22, 2022-23 on the same page) had separate 'Professional' blocks, which suggests B.Tech may not belong here.",
+        "The page also keeps past-year blocks (back to 2021-22) with the label 'EligibilityDeadline :' instead of 'EligibilityDeadline Date:'. Only the 2026–27 block is used here.",
+        "Deadline is 2 days after the read date. If it has passed when you verify, move this entry to the rules file as a 'missed' example."
+      ]
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import { createBatch, rng } from './batch.js';
 import {
   ASPHALT, BASE, BLOCK, BLOCK_CENTERS, KERB_H, LOT_TOP as G, ROAD_LINES, ROAD_TOP, ROAD_W,
 } from './layout.js';
-import { BENCH_SPOTS, bench, building, flowerBed, hedge, lamp, tree } from './props.js';
+import { BENCH_SPOTS, LAMP_SPOTS, bench, building, flowerBed, hedge, lamp, tree } from './props.js';
 import { centralHall, foundationTowers, opportunitiesDistrict, stateOffice, townHall, watchtower } from './landmarks.js';
 
 const PI = Math.PI;
@@ -78,9 +78,10 @@ function streetFurniture(b, r) {
   }
   for (const [bx, bz] of [[-14, 0], [14, 0], [0, 14]]) {
     for (const u of [-2.6, 2.6]) {
-      tree(b, r, bx + u, bz + e, 0.62, 'round', KERB_H);
-      tree(b, r, bx + e, bz + u, 0.62, 'round', KERB_H);
-      tree(b, r, bx - e, bz + u, 0.62, 'round', KERB_H);
+      const kind = bx === 0 ? 'blossom' : bx < 0 ? 'poplar' : 'round';
+      tree(b, r, bx + u, bz + e, 0.62, kind, KERB_H);
+      tree(b, r, bx + e, bz + u, 0.62, kind, KERB_H);
+      tree(b, r, bx - e, bz + u, 0.62, kind, KERB_H);
     }
   }
   // bins beside the mid-side lamps
@@ -186,8 +187,17 @@ function park(b, r) {
   hedge(b, cx - 4.4, cz + 2.2, 0.5, 0.9);
 }
 
+/** Paving on the Town Hall plaza: a light grid of stone tiles (flat, no shadows). */
+function plazaPaving(b) {
+  for (let i = -4; i <= 4; i++) {
+    b.flat(i * 1.05, G + 0.005, 3.2, 0.04, 0.01, 3.2, '#d9ccb1');
+    if (i >= -1 && i <= 1) b.flat(0, G + 0.005, 1.8 + i * 1.05, 9.0, 0.01, 0.04, '#d9ccb1');
+  }
+}
+
 export function buildCity() {
   BENCH_SPOTS.length = 0; // filled by bench() below
+  LAMP_SPOTS.length = 0; // filled by lamp() below
   const b = createBatch();
   const r = rng(20261024);
   ground(b);
@@ -203,6 +213,7 @@ export function buildCity() {
   park(b, r);
   streetFurniture(b, r);
   busStop(b);
+  plazaPaving(b);
   stalls(b, r);
-  return { batch: b, benches: [...BENCH_SPOTS] };
+  return { batch: b, benches: [...BENCH_SPOTS], lamps: [...LAMP_SPOTS] };
 }

@@ -247,6 +247,8 @@ function Character({ agent, playback, selected, onSelect, lane }) {
 function TagTracker() {
   const size = useThree((s) => s.size);
   useFrame(({ camera }) => {
+    const placed = [];
+    const todo = [];
     for (const [id, el] of tagEls) {
       const pos = positions.get(id);
       if (!pos) {
@@ -254,8 +256,20 @@ function TagTracker() {
         continue;
       }
       tmp.set(pos.x, pos.y + 1.85, pos.z).project(camera);
-      el.style.visibility = 'visible';
-      el.style.transform = `translate(${(((tmp.x + 1) / 2) * size.width).toFixed(1)}px, ${(((1 - tmp.y) / 2) * size.height).toFixed(1)}px) translate(-50%, -100%)`;
+      todo.push({ el, x: ((tmp.x + 1) / 2) * size.width, y: ((1 - tmp.y) / 2) * size.height, w: el.offsetWidth || 90, h: (el.lastElementChild?.offsetHeight || 20) + 3 });
+    }
+    // lowest on screen first; a tag that would overlap one already placed moves up
+    todo.sort((a, b) => b.y - a.y);
+    for (const t of todo) {
+      let y = t.y;
+      for (let guard = 0; guard < 8; guard++) {
+        const hit = placed.find((p) => Math.abs(p.x - t.x) < (p.w + t.w) / 2 && Math.abs(p.y - y) < p.h);
+        if (!hit) break;
+        y = hit.y - hit.h;
+      }
+      placed.push({ ...t, y });
+      t.el.style.visibility = 'visible';
+      t.el.style.transform = `translate(${t.x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%)`;
     }
   });
   return null;

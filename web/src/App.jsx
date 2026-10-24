@@ -26,7 +26,7 @@ export default function App() {
   const [selected, setSelected] = useState(null);
   const [mode, setMode] = useState(DEMO?.mode ?? null);
   const [planOpen, setPlanOpen] = useState(false);
-  const [duskCycle, setDuskCycle] = useState(false);
+  const [theme, setTheme] = useState('day'); // day | dusk | cycle
   const [sysOpen, setSysOpen] = useState(TECH);
   const [recheck, setRecheck] = useState(null); // Watchtower result for the current plan
   useEffect(() => setRecheck(null), [state.runId]);
@@ -92,13 +92,15 @@ export default function App() {
   return (
     <main className="app">
       <div className="sky" aria-hidden />
-      <City state={state} playback={playback} selected={selected} onSelect={setSelected} duskCycle={duskCycle} />
+      <City state={state} playback={playback} selected={selected} onSelect={setSelected} theme={theme} />
       <header className="brand">
         <h1>Lookout</h1>
         <p>Scholarship Season · sample student: B.Tech CE, 2nd year, OBC, Maharashtra</p>
-        <button type="button" className="btn brand__toggle" aria-pressed={duskCycle} onClick={() => setDuskCycle((v) => !v)}>
-          {duskCycle ? '🌇 Day-to-dusk cycle: on' : '☀ Daytime (start dusk cycle)'}
-        </button>
+        <div className="seg brand__toggle" role="group" aria-label="Theme">
+          {[['day', '☀ Day'], ['dusk', '🌇 Dusk'], ['cycle', '↻ Cycle']].map(([v, l]) => (
+            <button key={v} type="button" aria-pressed={theme === v} className={`seg__btn${theme === v ? ' seg__btn--on' : ''}`} onClick={() => setTheme(v)}>{l}</button>
+          ))}
+        </div>
         <button type="button" className="btn brand__toggle" aria-pressed={sysOpen} onClick={() => setSysOpen((v) => !v)}>
           ⚙ System view
         </button>

@@ -12,7 +12,8 @@
 html, body, #root { height: 100%; margin: 0; }
 
 body {
-  background: radial-gradient(120% 90% at 50% 20%, #f7fbff 0%, #e4edf6 55%, #cfdbe8 100%);
+  /* soft sky: warm near the horizon, cool above */
+  background: linear-gradient(180deg, #dfeaf7 0%, #eef2f6 46%, #f6eee4 100%);
   overflow: hidden;
 }
 
@@ -606,3 +607,26 @@ body {
   .print-plan th, .print-plan td { border: 1px solid #999; padding: 3pt 5pt; vertical-align: top; text-align: left; font-size: 9.5pt; word-break: break-word; }
   .print-plan small { color: #333; }
 }
+
+/* ---------- Part B: city look ---------- */
+.vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 95% at 50% 52%, transparent 58%, rgba(22, 30, 46, 0.22) 100%); }
+.compass {
+  position: absolute; right: 18px; bottom: 74px; width: 54px; height: 54px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9); box-shadow: 0 3px 10px rgba(31, 42, 55, 0.25); pointer-events: none;
+}
+.compass__needle { position: absolute; inset: 6px; display: flex; justify-content: center; }
+.compass__needle::before { content: ""; position: absolute; top: 2px; left: 50%; transform: translateX(-50%); border: 7px solid transparent; border-bottom: 18px solid #c8553d; border-top: 0; }
+.compass__needle span { position: absolute; top: 20px; font-weight: 800; font-size: 12px; color: #1f2a37; }
+.seg.brand__toggle { display: inline-flex; }
+
+/* district identity: each landmark label carries its neighbourhood's accent */
+.label[data-landmark] .label__pill { border-left: 5px solid var(--district, #9aa3ad); }
+.label[data-landmark='nsp'] { --district: #2f4b7c; }
+.label[data-landmark='mahadbt'] { --district: #f28e2b; }
+.label[data-landmark='foundations'] { --district: #3f8f72; }
+.label[data-landmark='opportunities'] { --district: #b07aa1; }
+.label[data-landmark='townhall'] { --district: #c8553d; }
+.label[data-landmark='watchtower'] { --district: #76787d; }
+.label[data-landmark='townhall'] .label__pill { font-size: 13px; padding: 4px 11px 4px 7px; }
+/* the title stays readable on the dusk sky (projector) */
+.brand { padding: 8px 12px 10px; border-radius: 14px; background: rgba(255, 255, 255, 0.82); box-shadow: 0 4px 14px rgba(31, 42, 55, 0.12); }

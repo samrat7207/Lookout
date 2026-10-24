@@ -84,17 +84,24 @@ function CameraRig({ focusId }) {
   );
 }
 
-/** Sun, sky light and haze. `dusk` (0 = day, 1 = dusk) is driven by the day-to-dusk cycle toggle:
- *  the sun warms and drops, windows light up, the haze deepens. Nothing is re-rendered by React. */
-function Atmosphere({ cycle }) {
+/** Shared with the lamp halos: 0 = day, 1 = dusk. */
+export const atmosphere = { dusk: 0 };
+
+/** Sun, sky light and haze. The theme (day, dusk or a slow day-to-dusk cycle) sets `dusk`:
+ *  the warm key light drops and reddens, the cool sky fill dims, windows and lamps light up,
+ *  the haze deepens. Nothing is re-rendered by React. */
+function Atmosphere({ theme }) {
   const sun = useRef();
   const sky = useRef();
   const scene = useThree((s) => s.scene);
-  const dusk = useRef(0);
   const lastCss = useRef(-1);
-  const sunDay = useMemo(() => new THREE.Color('#fff1dc'), []);
-  const sunDusk = useMemo(() => new THREE.Color('#ff9a5a'), []);
-  const glassDusk = useMemo(() => new THREE.Color('#ffcf7a'), []);
+  const c = useMemo(() => ({
+    sunDay: new THREE.Color('#ffe2bd'),
+    sunDusk: new THREE.Color('#ff8a4c'),
+    skyDay: new THREE.Color('#cfe0ff'),
+    skyDusk: new THREE.Color('#7f84c9'),
+    glassDusk: new THREE.Color('#ffc870'),
+  }), []);
 
   useEffect(() => {
     scene.fog = new THREE.Fog(DAY_FOG.clone(), 85, 170);
@@ -104,15 +111,15 @@ function Atmosphere({ cycle }) {
   }, [scene]);
 
   useFrame(({ clock }, delta) => {
-    // cycle on: slow loop day -> dusk -> day (about 80 s); off: ease back to day
-    const want = cycle ? (1 - Math.cos((clock.elapsedTime * Math.PI * 2) / 80)) / 2 : 0;
-    dusk.current += (want - dusk.current) * Math.min(1, delta * (cycle ? 4 : 1.5));
-    const d = dusk.current;
-    sun.current.intensity = 3.4 - 2.3 * d;
-    sun.current.color.copy(sunDay).lerp(sunDusk, d);
-    sky.current.intensity = 2.2 - 1.3 * d;
-    MATERIALS.glass.emissive.copy(glassDusk);
-    MATERIALS.glass.emissiveIntensity = d * 0.85;
+    const want = theme === 'dusk' ? 1 : theme === 'cycle' ? (1 - Math.cos((clock.elapsedTime * Math.PI * 2) / 80)) / 2 : 0;
+    atmosphere.dusk += (want - atmosphere.dusk) * Math.min(1, delta * (theme === 'cycle' ? 4 : 1.6));
+    const d = atmosphere.dusk;
+    sun.current.intensity = 3.3 - 2.1 * d;
+    sun.current.color.copy(c.sunDay).lerp(c.sunDusk, d);
+    sky.current.intensity = 1.9 - 1.0 * d;
+    sky.current.color.copy(c.skyDay).lerp(c.skyDusk, d);
+    MATERIALS.glass.emissive.copy(c.glassDusk);
+    MATERIALS.glass.emissiveIntensity = d * 0.9;
     scene.fog?.color.copy(DAY_FOG).lerp(DUSK_FOG, d);
     if (Math.abs(d - lastCss.current) > 0.01) {
       lastCss.current = d;
@@ -122,12 +129,12 @@ function Atmosphere({ cycle }) {
 
   return (
     <>
-      <hemisphereLight ref={sky} args={['#eef6ff', '#d6c7ae', 2.2]} />
+      <hemisphereLight ref={sky} args={['#cfe0ff', '#bfae94', 1.9]} />
       <directionalLight
         ref={sun}
         position={[22, 38, 14]}
-        intensity={3.4}
-        color="#fff1dc"
+        intensity={3.3}
+        color="#ffe2bd"
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-34}
@@ -138,8 +145,51 @@ function Atmosphere({ cycle }) {
         shadow-camera-far={120}
         shadow-bias={-0.0004}
         shadow-normalBias={0.03}
+        shadow-radius={3}
       />
     </>
+  );
+}
+
+/** Warm halos on every street lamp, faded in with dusk (one instanced draw call). */
+const HALO_GEO = new THREE.IcosahedronGeometry(0.34, 1);
+function LampHalos({ lamps }) {
+  const ref = useRef();
+  const mat = useMemo(() => new THREE.MeshBasicMaterial({ color: '#ffcf73', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }), []);
+  useEffect(() => {
+    const m = new THREE.Matrix4();
+    lamps.forEach((l, i) => ref.current.setMatrixAt(i, m.makeTranslation(l.x, l.y, l.z)));
+    ref.current.instanceMatrix.needsUpdate = true;
+    return () => mat.dispose();
+  }, [lamps, mat]);
+  useFrame(() => {
+    mat.opacity = 0.75 * atmosphere.dusk;
+    ref.current.visible = atmosphere.dusk > 0.03;
+  });
+  return <instancedMesh ref={ref} args={[HALO_GEO, mat, lamps.length]} frustumCulled={false} renderOrder={3} />;
+}
+
+/** Compass: keeps an "N" needle pointing at world north (-z) as the camera orbits. */
+const compassEls = { needle: null };
+const v0 = new THREE.Vector3();
+const v1 = new THREE.Vector3();
+function CompassTracker() {
+  const controls = useThree((s) => s.controls);
+  useFrame(({ camera }) => {
+    if (!compassEls.needle) return;
+    const t = controls?.target ?? HOME_TARGET;
+    v0.copy(t).project(camera);
+    v1.set(t.x, t.y, t.z - 10).project(camera);
+    const ang = Math.atan2(v1.x - v0.x, v1.y - v0.y); // screen angle of north from straight up
+    compassEls.needle.style.transform = `rotate(${(ang * 180) / Math.PI}deg)`;
+  });
+  return null;
+}
+export function Compass() {
+  return (
+    <div className="compass" aria-hidden title="North">
+      <div className="compass__needle" ref={(el) => (compassEls.needle = el)}><span>N</span></div>
+    </div>
   );
 }
 
@@ -190,8 +240,8 @@ function RenderStats() {
 }
 
 /** The 3D city plus its DOM overlays. All run-driven visuals come from `state` (the reducer). */
-export default function City({ state, playback, selected, onSelect, duskCycle = false }) {
-  const { batch, benches } = useMemo(buildCity, []);
+export default function City({ state, playback, selected, onSelect, theme = 'day' }) {
+  const { batch, benches, lamps } = useMemo(buildCity, []);
   const showStats = useMemo(() => new URLSearchParams(window.location.search).has('stats'), []);
   const [hover, setHover] = useState(null);
 
@@ -200,12 +250,18 @@ export default function City({ state, playback, selected, onSelect, duskCycle = 
       <Canvas
         shadows="percentage"
         orthographic
-        flat
+        onCreated={({ gl }) => {
+          // filmic grade: ACES tone mapping with a slightly lifted exposure
+          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 1.08;
+        }}
         dpr={[1, 1.75]}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
         camera={{ position: [42, 40, 42], zoom: 14, near: 0.1, far: 400 }}
       >
-        <Atmosphere cycle={duskCycle} />
+        <Atmosphere theme={theme} />
+        <LampHalos lamps={lamps} />
+        <CompassTracker />
         <InstancedBatch batch={batch} />
         <Signs />
         <Citizens benches={benches} />
@@ -219,6 +275,8 @@ export default function City({ state, playback, selected, onSelect, duskCycle = 
       </Canvas>
       <LandmarkLabels hover={hover} buildings={state.buildings} selected={selected} onSelect={onSelect} />
       <AgentTags state={state} playback={playback} selected={selected} onSelect={onSelect} />
+      <Compass />
+      <div className="vignette" aria-hidden />
     </>
   );
 }

@@ -206,9 +206,17 @@ export function townHall(b, r) {
   const ty = F + 2.52;
   b.box(cx, ty, hz, 1.5, 2.6, 1.5, cream);
   b.box(cx, ty + 2.6, hz, 1.65, 0.14, 1.65, trim);
-  b.pyramid(cx, ty + 2.74, hz, 1.8, 1.3, 1.8, '#5b8c85');
-  b.cyl(cx, ty + 4.0, hz, 0.06, 0.8, '#5b6169');
-  b.box(cx + 0.3, ty + 4.42, hz, 0.55, 0.32, 0.03, '#e15759');
+  // belfry with open arches, an octagonal drum and a copper spire: the tallest landmark
+  const by = ty + 2.74;
+  b.box(cx, by, hz, 1.25, 2.0, 1.25, cream);
+  for (const [dx, dz, w, d] of [[0, 0.63, 0.5, 0.04], [0.63, 0, 0.04, 0.5]]) b.box(cx + dx, by + 0.45, hz + dz, w, 1.1, d, '#4a3b2c');
+  b.box(cx, by + 2.0, hz, 1.4, 0.14, 1.4, trim);
+  b.cyl(cx, by + 2.14, hz, 1.05, 1.1, cream);
+  b.cyl(cx, by + 3.24, hz, 1.2, 0.12, trim);
+  b.cone(cx, by + 3.36, hz, 1.15, 3.3, '#5b8c85');
+  b.sphere(cx, by + 6.75, hz, 0.24, '#e9b949');
+  b.cyl(cx, by + 6.85, hz, 0.05, 0.9, '#5b6169');
+  b.box(cx + 0.28, by + 7.4, hz, 0.5, 0.3, 0.03, '#e15759');
   for (const [dx, dz, rot] of [[0, 0.76, 'z'], [0.76, 0, 'x']]) {
     const px = cx + dx, pz = hz + dz, py = ty + 1.5;
     if (rot === 'z') {

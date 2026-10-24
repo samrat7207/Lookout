@@ -99,13 +99,24 @@ export function tree(b, r, x, z, s = 1, kind = r.chance(0.7) ? 'round' : 'pine',
   if (kind === 'round') {
     b.dodeca(x, y + 0.5 * s + 0.36 * s, z, 0.95 * s, r.pick(GREENS), r() * 6);
     if (r.chance(0.5)) b.dodeca(x + 0.22 * s, y + 0.5 * s + 0.62 * s, z - 0.12 * s, 0.6 * s, r.pick(GREENS), r() * 6);
+  } else if (kind === 'poplar') {
+    // tall and narrow: a stretched sphere
+    b.add('sphere', 'solid', x, y + 0.5 * s + 0.75 * s, z, 0.62 * s, 1.6 * s, 0.62 * s, r.pick(GREENS));
+  } else if (kind === 'blossom') {
+    // flowering tree: pink crown, a few lighter clusters
+    b.dodeca(x, y + 0.5 * s + 0.36 * s, z, 0.95 * s, r.pick(['#f4a6c1', '#ef8fb0', '#f7c1d4']), r() * 6);
+    b.dodeca(x - 0.2 * s, y + 0.5 * s + 0.62 * s, z + 0.1 * s, 0.55 * s, '#fbd3e1', r() * 6);
   } else {
     b.cone(x, y + 0.32 * s, z, 1.0 * s, 1.0 * s, '#3f8f4a');
     b.cone(x, y + 0.85 * s, z, 0.72 * s, 0.85 * s, '#4fa35a');
   }
 }
 
+/** Every street lamp head, for the dusk glow (City.jsx). */
+export const LAMP_SPOTS = [];
+
 export function lamp(b, x, z, y = G) {
+  LAMP_SPOTS.push({ x, y: y + 1.46, z });
   b.cyl(x, y, z, 0.08, 1.5, '#5b6169');
   b.cone(x, y + 1.48, z, 0.3, 0.14, '#5b6169', Math.PI);
   b.sphere(x, y + 1.46, z, 0.18, '#fff4c9', 'glow');

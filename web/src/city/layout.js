@@ -54,7 +54,7 @@ export const LANDMARKS = [
     short: 'Town Hall',
     blurb: 'Where your plan is briefed',
     icon: '🏛',
-    x: 0, z: 0, labelY: 7.4,
+    x: 0, z: 0, labelY: 14.6,
     hits: [{ x: 0, z: -1.8, w: 7.6, h: 6.6, d: 4.4 }],
   },
   {

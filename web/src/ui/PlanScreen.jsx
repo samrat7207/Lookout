@@ -198,8 +198,8 @@ export function PlanScreen({ state, onClose }) {
         )}
         <footer className="plan__footer">
           {plan.sources
-            ? <>Sources checked: <b>{plan.sources.checked}</b>, failed: <b>{plan.sources.failed}</b>, last checked: <b>{fmtChecked(plan.sources.lastChecked)}</b></>
-            : 'Sources: not reported by this run'}
+            ? <span>Sources checked: <b>{plan.sources.checked}</b>, failed: <b>{plan.sources.failed}</b>, last checked: <b>{fmtChecked(plan.sources.lastChecked)}</b></span>
+            : <span>Sources: not reported by this run</span>}
           {state.runMode && state.runMode.mode !== 'live' && <span className="runbar__replay">{state.runMode.mode === 'mock' ? 'mock data' : 'replayed recording'}</span>}
         </footer>
       </div>

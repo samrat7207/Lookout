@@ -20,6 +20,7 @@ export default function App() {
   const [selected, setSelected] = useState(null);
   const [mode, setMode] = useState(DEMO?.mode ?? null);
   const [planOpen, setPlanOpen] = useState(false);
+  const [duskCycle, setDuskCycle] = useState(false);
 
   // open the plan once per run when it finishes
   const openedFor = useRef(null);
@@ -46,10 +47,14 @@ export default function App() {
 
   return (
     <main className="app">
-      <City state={state} playback={playback} selected={selected} onSelect={setSelected} />
+      <div className="sky" aria-hidden />
+      <City state={state} playback={playback} selected={selected} onSelect={setSelected} duskCycle={duskCycle} />
       <header className="brand">
         <h1>Lookout</h1>
         <p>Scholarship Season · sample student: B.Tech CE, 2nd year, OBC, Maharashtra</p>
+        <button type="button" className="btn brand__toggle" aria-pressed={duskCycle} onClick={() => setDuskCycle((v) => !v)}>
+          {duskCycle ? '🌇 Day-to-dusk cycle: on' : '☀ Daytime (start dusk cycle)'}
+        </button>
       </header>
       <RunBar
         state={state}

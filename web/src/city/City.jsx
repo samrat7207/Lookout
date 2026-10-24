@@ -8,14 +8,46 @@ import { LandmarkLabels, Landmarks } from './Landmarks.jsx';
 import { Beacon } from './Beacon.jsx';
 import { Citizens } from './Citizens.jsx';
 import { AgentTags, Agents, BuildingEffects } from './Agents.jsx';
+import { Signs } from './Signs.jsx';
+import { LANDMARKS } from './layout.js';
+import { MATERIALS } from './InstancedBatch.jsx';
 
 const PAN_LIMIT = 16;
+// the view centre sits a little behind the middle, so the run bar never covers the back landmarks
+const HOME_TARGET = new THREE.Vector3(-2, 1.5, -2);
+const DAY_FOG = new THREE.Color('#e4edf6');
+const DUSK_FOG = new THREE.Color('#6f6a8f');
 
-/** Orthographic isometric camera that fits the diorama to the viewport, with orbit/zoom/pan limits. */
-function CameraRig() {
+/** Orthographic isometric camera that fits the diorama to the viewport, with orbit/zoom/pan limits.
+ *  Clicking a building glides the view to it and zooms in; the glide stops as soon as it arrives. */
+function CameraRig({ focusId }) {
   const size = useThree((s) => s.size);
   const camera = useThree((s) => s.camera);
+  const controls = useThree((s) => s.controls);
   const fit = Math.min(size.width / 64, size.height / 44);
+  const glide = useRef(null);
+
+  useEffect(() => {
+    const lm = LANDMARKS.find((l) => l.id === focusId);
+    if (!lm) return;
+    glide.current = { target: new THREE.Vector3(lm.x, 1.5, lm.z), zoom: fit * 2.1 };
+  }, [focusId, fit]);
+
+  useFrame((_, delta) => {
+    const g = glide.current;
+    if (!g || !controls) return;
+    const k = 1 - Math.exp(-delta * 4);
+    const t = controls.target;
+    const dx = (g.target.x - t.x) * k, dz = (g.target.z - t.z) * k;
+    t.x += dx;
+    t.z += dz;
+    camera.position.x += dx;
+    camera.position.z += dz;
+    camera.zoom += (g.zoom - camera.zoom) * k;
+    camera.updateProjectionMatrix();
+    controls.update();
+    if (Math.hypot(g.target.x - t.x, g.target.z - t.z) < 0.02 && Math.abs(g.zoom - camera.zoom) < 0.01) glide.current = null;
+  });
 
   useLayoutEffect(() => {
     camera.zoom = fit;
@@ -39,7 +71,7 @@ function CameraRig() {
   return (
     <OrbitControls
       makeDefault
-      target={[0, 1.5, 0]}
+      target={HOME_TARGET.toArray()}
       enableDamping
       dampingFactor={0.08}
       minZoom={fit * 0.75}
@@ -52,25 +84,61 @@ function CameraRig() {
   );
 }
 
-function Lights() {
+/** Sun, sky light and haze. `dusk` (0 = day, 1 = dusk) is driven by the day-to-dusk cycle toggle:
+ *  the sun warms and drops, windows light up, the haze deepens. Nothing is re-rendered by React. */
+function Atmosphere({ cycle }) {
+  const sun = useRef();
+  const sky = useRef();
+  const scene = useThree((s) => s.scene);
+  const dusk = useRef(0);
+  const lastCss = useRef(-1);
+  const sunDay = useMemo(() => new THREE.Color('#fff1dc'), []);
+  const sunDusk = useMemo(() => new THREE.Color('#ff9a5a'), []);
+  const glassDusk = useMemo(() => new THREE.Color('#ffcf7a'), []);
+
+  useEffect(() => {
+    scene.fog = new THREE.Fog(DAY_FOG.clone(), 85, 170);
+    return () => {
+      scene.fog = null;
+    };
+  }, [scene]);
+
+  useFrame(({ clock }, delta) => {
+    // cycle on: slow loop day -> dusk -> day (about 80 s); off: ease back to day
+    const want = cycle ? (1 - Math.cos((clock.elapsedTime * Math.PI * 2) / 80)) / 2 : 0;
+    dusk.current += (want - dusk.current) * Math.min(1, delta * (cycle ? 4 : 1.5));
+    const d = dusk.current;
+    sun.current.intensity = 3.4 - 2.3 * d;
+    sun.current.color.copy(sunDay).lerp(sunDusk, d);
+    sky.current.intensity = 2.2 - 1.3 * d;
+    MATERIALS.glass.emissive.copy(glassDusk);
+    MATERIALS.glass.emissiveIntensity = d * 0.85;
+    scene.fog?.color.copy(DAY_FOG).lerp(DUSK_FOG, d);
+    if (Math.abs(d - lastCss.current) > 0.01) {
+      lastCss.current = d;
+      document.documentElement.style.setProperty('--dusk', d.toFixed(3));
+    }
+  });
+
   return (
     <>
-        <hemisphereLight args={['#eef6ff', '#d6c7ae', 2.2]} />
-        <directionalLight
-          position={[22, 38, 14]}
-          intensity={3.4}
-          color="#fff1dc"
-          castShadow
-          shadow-mapSize={[2048, 2048]}
-          shadow-camera-left={-34}
-          shadow-camera-right={34}
-          shadow-camera-top={34}
-          shadow-camera-bottom={-34}
-          shadow-camera-near={1}
-          shadow-camera-far={120}
-          shadow-bias={-0.0004}
-          shadow-normalBias={0.03}
-        />
+      <hemisphereLight ref={sky} args={['#eef6ff', '#d6c7ae', 2.2]} />
+      <directionalLight
+        ref={sun}
+        position={[22, 38, 14]}
+        intensity={3.4}
+        color="#fff1dc"
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-left={-34}
+        shadow-camera-right={34}
+        shadow-camera-top={34}
+        shadow-camera-bottom={-34}
+        shadow-camera-near={1}
+        shadow-camera-far={120}
+        shadow-bias={-0.0004}
+        shadow-normalBias={0.03}
+      />
     </>
   );
 }
@@ -122,8 +190,8 @@ function RenderStats() {
 }
 
 /** The 3D city plus its DOM overlays. All run-driven visuals come from `state` (the reducer). */
-export default function City({ state, playback, selected, onSelect }) {
-  const { batch } = useMemo(buildCity, []);
+export default function City({ state, playback, selected, onSelect, duskCycle = false }) {
+  const { batch, benches } = useMemo(buildCity, []);
   const showStats = useMemo(() => new URLSearchParams(window.location.search).has('stats'), []);
   const [hover, setHover] = useState(null);
 
@@ -137,15 +205,16 @@ export default function City({ state, playback, selected, onSelect }) {
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
         camera={{ position: [42, 40, 42], zoom: 14, near: 0.1, far: 400 }}
       >
-        <Lights />
+        <Atmosphere cycle={duskCycle} />
         <InstancedBatch batch={batch} />
-        <Citizens />
+        <Signs />
+        <Citizens benches={benches} />
         <Beacon />
         <TileShadow />
         <BuildingEffects state={state} playback={playback} />
         <Agents state={state} playback={playback} selected={selected} onSelect={onSelect} />
         <Landmarks hover={hover} setHover={setHover} onSelect={onSelect} />
-        <CameraRig />
+        <CameraRig focusId={selected?.type === 'building' ? selected.id : null} />
         {showStats && <RenderStats />}
       </Canvas>
       <LandmarkLabels hover={hover} buildings={state.buildings} selected={selected} onSelect={onSelect} />

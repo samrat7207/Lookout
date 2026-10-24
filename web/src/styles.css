@@ -452,3 +452,13 @@ body {
   .plan__row { grid-template-columns: 1fr; }
   .kit__fields div { grid-template-columns: 1fr; }
 }
+
+/* day-to-dusk sky behind the transparent canvas; --dusk is set by the Atmosphere component */
+.sky {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #24305e 0%, #6d4c8f 45%, #f19c6b 100%);
+  opacity: var(--dusk, 0);
+  pointer-events: none;
+}
+.brand__toggle { margin-top: 8px; pointer-events: auto; }

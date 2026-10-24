@@ -1,0 +1,22 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# deps / build
+node_modules/
+dist/
+
+# server cache
+server/.cache/
+
+# recordings: keep only the committed golden and fake runs
+recordings/*
+!recordings/demo-golden.jsonl
+!recordings/fake-run.jsonl
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+*.log

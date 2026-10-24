@@ -161,6 +161,29 @@ function KitView({ kit, onClose }) {
   );
 }
 
+/** The Profiler's view of the student: what we know (sample student) and what we do not. */
+function ProfileBox({ profile }) {
+  if (!profile) return null;
+  return (
+    <section className="plan__profile" aria-label="Your details">
+      <h3>Your details <span className="plan__sample">{profile.label ?? 'profile'}</span></h3>
+      <div className="plan__known">
+        {profile.known.map((k) => (
+          <span key={k.field} className="plan__fact"><b>{k.label}:</b> {k.value}</span>
+        ))}
+      </div>
+      <details>
+        <summary>Unknown ({profile.unknown.length}): needs your input, never guessed</summary>
+        <ul>
+          {profile.unknown.map((u) => (
+            <li key={u.field}><b>{u.label}</b>: <i>{u.value}</i>. {u.why}</li>
+          ))}
+        </ul>
+      </details>
+    </section>
+  );
+}
+
 /** Full-screen plan over the city: conflicts, ranked list, kits, not-applicable, sources footer. */
 export function PlanScreen({ state, onClose }) {
   const [kit, setKit] = useState(null);
@@ -185,6 +208,7 @@ export function PlanScreen({ state, onClose }) {
           </div>
         )}
         <p className="plan__safety">🔒 {SAFETY}</p>
+        <ProfileBox profile={plan.profile ?? state.profile} />
         <Conflicts conflicts={plan.conflicts} />
         <ol className="plan__list">
           {plan.items.map((item) => (

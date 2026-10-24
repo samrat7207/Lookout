@@ -18,6 +18,7 @@ import { CONFLICT_RULES, findRuleEvidence } from './rank/conflicts.js';
 import { buildPlan, istToday } from './rank/ranker.js';
 import { buildKit } from './kit/buildKit.js';
 import { verifyItems } from './verify/verifier.js';
+import { buildCriteria } from './profile/profiler.js';
 import * as recon from './fake/reconData.js';
 
 const NSP_HOME = 'https://scholarships.gov.in/';
@@ -49,6 +50,7 @@ const AGENTS = {
   mayor: { name: 'Mayor Tara', role: 'Orchestrator', building: 'townhall' },
   gatekeeper: { name: 'Gita', role: 'Gatekeeper', building: 'townhall' },
   verifier: { name: 'Vera', role: 'Verifier', building: 'townhall' },
+  profiler: { name: 'Priya', role: 'Profiler', building: 'townhall' },
 };
 
 // where each source's items live in the city (for verify.result events)
@@ -99,6 +101,12 @@ export async function runLive(run, opts = {}) {
   }
   // the Gatekeeper owns cache.hit / cache.miss / rate.limited / blocked / fallback
   gk.attach((kind, payload) => run.emit(kind, { agentId: 'gatekeeper', building: 'townhall', payload }));
+
+  // Profiler: profile -> criteria for the Judge, plus the facts we do not know
+  const profiled = buildCriteria(profile);
+  const criteria = profiled.criteria;
+  run.emit('profile.ready', { agentId: 'profiler', building: 'townhall', payload: profiled });
+  run.emit('agent.done', { agentId: 'profiler', building: 'townhall', payload: { findings: 0, durationMs: 0, unknown: profiled.unknown.length } });
 
   const as = (agentId) => {
     const { building } = AGENTS[agentId];
@@ -198,7 +206,7 @@ export async function runLive(run, opts = {}) {
       const schemes = parseAllScholarships(list.text);
       const kept = [];
       for (const s of schemes) {
-        const fit = assessByName(s.name, profile);
+        const fit = assessByName(s.name, criteria);
         if (fit.fit === 'not_applicable') notApplicable.push({ title: s.name, reason: fit.reason, sourceUrl: NSP_ALL_SCHOLARSHIPS_URL, checkedAt: list.checkedAt });
         else kept.push([s, fit]);
       }
@@ -292,7 +300,7 @@ export async function runLive(run, opts = {}) {
           notApplicable.push({ title, reason: `Closed: the last deadline on the page (${p.pastDeadline}) has passed.`, sourceUrl: url, checkedAt: page.checkedAt });
           continue;
         }
-        const fit = assessPageText(title, p.main, profile);
+        const fit = assessPageText(title, p.main, criteria);
         if (fit.fit === 'not_applicable') {
           notApplicable.push({ title, reason: fit.reason, sourceUrl: url, checkedAt: page.checkedAt });
           continue;
@@ -329,7 +337,7 @@ export async function runLive(run, opts = {}) {
     return { checked: ledger.length, failed, cached, lastChecked: times.at(-1) ?? null, list: ledger, notUsed: SOURCES_NOT_USED, gatekeeper: gk.stats() };
   };
   let verification = new Map();
-  const planNow = (extra = {}) => buildPlan(found, { today, headline, notes, notApplicable, ruleEvidence, sources: sources(), verification, ...extra });
+  const planNow = (extra = {}) => buildPlan(found, { today, headline, notes, notApplicable, ruleEvidence, sources: sources(), verification, profile: profiled, ...extra });
   const mayorPlan = (kind, extra) => run.emit(kind, { agentId: 'mayor', building: 'townhall', payload: planNow(extra) });
 
   await Promise.all([

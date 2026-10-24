@@ -4,6 +4,7 @@
 import * as recon from './fake/reconData.js';
 import { buildPlan } from './rank/ranker.js';
 import { buildKit } from './kit/buildKit.js';
+import { buildCriteria } from './profile/profiler.js';
 
 // The recon was taken on this date, so the fake run uses it as "today" and the
 // day counts match the data ("7 days left"). Live runs use the real IST date.
@@ -17,6 +18,7 @@ const AGENTS = {
   watchman: { name: 'Wardu', role: 'Watchman', building: 'watchtower' },
   mayor: { name: 'Mayor Tara', role: 'Town Hall', building: 'townhall' },
   verifier: { name: 'Vera', role: 'Verifier', building: 'townhall' },
+  profiler: { name: 'Priya', role: 'Profiler', building: 'townhall' },
 };
 
 /**
@@ -35,7 +37,8 @@ export async function runFake(run, opts = {}) {
   const sleep = (ms) => (pace > 0 ? new Promise((r) => setTimeout(r, ms * pace * (0.6 + Math.random() * 0.8))) : Promise.resolve());
 
   const scouts = ['nsp-scout', 'mahadbt-scout', 'foundations-scout', ...(opportunities ? ['opps-scout'] : [])];
-  const agentIds = [...scouts, 'watchman', 'mayor', 'verifier'];
+  const agentIds = [...scouts, 'watchman', 'mayor', 'verifier', 'profiler'];
+  const profiled = buildCriteria(profile);
   const found = [];
   const notes = [];
   let headline = null;
@@ -66,12 +69,14 @@ export async function runFake(run, opts = {}) {
     await sleep(150);
     run.emit('agent.spawned', { agentId: id, building: 'townhall', payload: { name: AGENTS[id].name, role: AGENTS[id].role } });
   }
+  run.emit('profile.ready', { agentId: 'profiler', building: 'townhall', payload: profiled });
+  run.emit('agent.done', { agentId: 'profiler', building: 'townhall', payload: { findings: 0, durationMs: 0, unknown: profiled.unknown.length } });
 
   const notApplicable = [...recon.NOT_APPLICABLE, ...recon.MAHADBT_SKIPPED.map(({ title, reason, sourceUrl }) => ({ title, reason: reason[0].toUpperCase() + reason.slice(1), sourceUrl }))];
   // the scripted run "checks" these sources; MahaDBT 2.0 is the one that fails
   const sources = { checked: 6, failed: 1, lastChecked: recon.RECON_CHECKED_AT };
   let verification = new Map();
-  const planNow = (extra = {}) => buildPlan(found, { today, headline, notes, notApplicable, sources, verification, ...extra });
+  const planNow = (extra = {}) => buildPlan(found, { today, headline, notes, notApplicable, sources, verification, profile: profiled, ...extra });
   const returnHome = async (a) => {
     await sleep(600);
     a.back();

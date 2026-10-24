@@ -104,7 +104,7 @@ export function byRank(a, b) {
  *   ruleEvidence?: object, notApplicable?: {title, reason, sourceUrl}[],
  *   sources?: {checked: number, failed: number, lastChecked: string|null, list?: object[]} }} opts
  */
-export function buildPlan(opportunities, { today, headline = null, notes = [], kitIds = new Map(), now = new Date(), ruleEvidence = {}, notApplicable = [], sources = null, verification = new Map() }) {
+export function buildPlan(opportunities, { today, headline = null, notes = [], kitIds = new Map(), now = new Date(), ruleEvidence = {}, notApplicable = [], sources = null, verification = new Map(), profile = null }) {
   const all = opportunities.map((o) => toItem(o, today, kitIds, verification));
   const items = all.filter((i) => i.daysLeft === null || i.daysLeft >= 0).sort(byRank);
   const missed = all.filter((i) => i.daysLeft !== null && i.daysLeft < 0).sort(byRank);
@@ -126,6 +126,7 @@ export function buildPlan(opportunities, { today, headline = null, notes = [], k
     counts,
     notes,
     conflicts: findConflicts(items, ruleEvidence),
+    profile, // Profiler output: known facts and unknowns (never guessed)
     sources,
   };
 }

@@ -93,6 +93,7 @@ export function describe(evt) {
     case 'watchtower.change': return `Date changed: ${p.changes?.length ?? 0} schemes`;
     case 'run.complete': return `Run complete: ${p.findings ?? 0} findings, ${p.errors ?? 0} errors`;
     case 'run.failed': return `Run failed: ${p.message ?? ''}`;
+    case 'profile.ready': return `Profile read: ${p.known?.length ?? 0} facts known, ${p.unknown?.length ?? 0} unknown (needs your input)`;
     case 'verify.result': return `${VERIFY_LABEL[p.status] ?? p.status}: ${p.title ?? p.opportunityId}${p.status === 'verified' ? '' : `. ${p.reason}`}`;
     case 'cache.hit': return `Cache hit: ${p.url ?? p.call} (fetched ${Math.round((p.ageMs ?? 0) / 60000)} min ago)`;
     case 'cache.miss': return `Cache miss: ${p.url ?? p.call}, fetching live`;
@@ -292,6 +293,11 @@ export function reduce(state, evt) {
       s.agents = agents;
       break;
     }
+
+    case 'profile.ready':
+      s.profile = p;
+      agentPatch({ status: 'working' });
+      break;
 
     case 'verify.result':
       s.verification = { ...s.verification, [p.opportunityId]: { ...p, building: evt.building ?? null } };

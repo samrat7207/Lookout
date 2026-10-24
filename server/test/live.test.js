@@ -170,3 +170,17 @@ test('MODE picks the default: explicit value, else live with a key, else replay'
   assert.equal(defaultMode({ MODE: '', TINYFISH_API_KEY: 'x' }), 'live');
   assert.equal(defaultMode({}), 'replay');
 });
+
+test('Profiler: known facts from the sample student, unknowns never guessed', async () => {
+  const { buildCriteria, UNKNOWN } = await import('../src/profile/profiler.js');
+  const { SAMPLE_STUDENT } = await import('../src/fake/reconData.js');
+  const p = buildCriteria(SAMPLE_STUDENT);
+  assert.equal(p.label, 'sample student');
+  assert.deepEqual(p.criteria, { gender: 'male', course: 'btech', level: 'ug', year: 2, category: 'OBC', state: 'Maharashtra', disability: false });
+  assert.ok(p.known.some((k) => k.field === 'year' && k.value === '2nd year'));
+  for (const f of ['familyIncome', 'capAdmission', 'domicileProof']) {
+    const u = p.unknown.find((x) => x.field === f);
+    assert.equal(u?.value, UNKNOWN, `${f} is unknown, needs your input`);
+  }
+  assert.equal(buildCriteria({ ...SAMPLE_STUDENT, familyIncome: 200000 }).unknown.some((u) => u.field === 'familyIncome'), false);
+});

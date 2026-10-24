@@ -1,14 +1,26 @@
+import { existsSync } from 'node:fs';
 import express from 'express';
 import { createRun, getRun } from './bus.js';
 import { streamRun } from './sse.js';
 import { recordRun } from './recorder.js';
+import { runFake } from './fakeAgents.js';
+import { SAMPLE_STUDENT } from './fake/reconData.js';
+import { listRecordings, recordingPath, replayRecording } from './replay.js';
+
+function defaultRecording() {
+  return existsSync(recordingPath('demo-golden')) ? 'demo-golden' : 'fake-run';
+}
 
 /**
- * Run starters by mode. Each gets (run, body) and drives the run to close().
- * Filled in by later pieces: fake (scripted), mock (replay), live (TinyFish).
- * @type {Record<string, (run: ReturnType<typeof createRun>, body: any) => Promise<void> | void>}
+ * Run starters by mode. Each gets (run, body) and resolves when the run is finished;
+ * the route then closes the run. `live` (TinyFish scouts) arrives in M3.
+ * @type {Record<string, (run: ReturnType<typeof createRun>, body: any) => Promise<unknown>>}
  */
-export const starters = {};
+export const starters = {
+  fake: (run, body) => runFake(run, { profile: { ...SAMPLE_STUDENT, ...body.profile }, pace: body.pace }),
+  mock: (run, body) =>
+    replayRecording(run, recordingPath(body.recording ?? defaultRecording()), { speed: Number(body.speed) || 1 }),
+};
 
 export function createApp({ record = true } = {}) {
   const app = express();
@@ -41,6 +53,10 @@ export function createApp({ record = true } = {}) {
       .finally(() => run.close());
 
     res.status(201).json({ runId: run.id });
+  });
+
+  app.get('/api/recordings', async (_req, res) => {
+    res.json({ default: defaultRecording(), recordings: await listRecordings() });
   });
 
   app.get('/api/runs/:runId/events', (req, res) => {

@@ -102,7 +102,21 @@ test('sample student plan: no Shahu or Panjabrao, MahaDBT undated, conflicts fla
   for (const c of plan.conflicts) {
     assert.match(c.sourceUrl, /^https:\/\//);
     assert.ok(c.ids.every((id) => plan.items.some((i) => i.opportunityId === id)));
+    assert.equal(c.text, 'These may not be combinable. Check the current NSP rules before applying.');
+    assert.equal(c.officialRule, undefined, 'no fetched page in a fake run, so no hard rule is stated');
   }
+});
+
+test('a conflict quotes an official rule only when a fetched page says it', async () => {
+  const { findConflicts, findRuleEvidence, CONFLICT_RULES } = await import('../src/rank/conflicts.js');
+  const items = [{ opportunityId: 'nsp:pm-yasasvi-college-obc-ebc-dnt' }, { opportunityId: 'nsp:pm-usp-csss' }];
+  const page = ['Notice', 'From AY 2026-27 a student may apply for one merit-based scheme and one or more welfare-based schemes.', 'More'].join(String.fromCharCode(10));
+  const ev = findRuleEvidence(CONFLICT_RULES[0], page);
+  assert.match(ev.quote, /^From AY 2026-27 a student may apply for one merit-based scheme/);
+  assert.equal(findRuleEvidence(CONFLICT_RULES[0], 'nothing about it here'), null);
+  const [c] = findConflicts(items, { 'nsp-one-merit-scheme': { ...ev, sourceUrl: 'https://scholarships.gov.in/', checkedAt: '2026-10-24T20:00:00Z' } });
+  assert.equal(c.officialRule.sourceUrl, 'https://scholarships.gov.in/');
+  assert.match(c.officialRule.quote, /one merit-based scheme/);
 });
 
 test('the fake run shows failures honestly: MahaDBT 2.0 fails after one retry', async () => {

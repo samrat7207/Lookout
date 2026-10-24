@@ -74,7 +74,7 @@ export function byDeadline(a, b) {
   return b.score - a.score;
 }
 
-export function buildPlan(opportunities, { today, headline = null, notes = [], kitIds = new Map(), now = new Date() }) {
+export function buildPlan(opportunities, { today, headline = null, notes = [], kitIds = new Map(), now = new Date(), ruleEvidence = {} }) {
   const all = opportunities.map((o) => toItem(o, today, kitIds)).filter((i) => i.score >= MIN_SCORE);
   const items = all.filter((i) => i.daysLeft === null || i.daysLeft >= 0).sort(byDeadline);
   const missed = all.filter((i) => i.daysLeft !== null && i.daysLeft < 0).sort(byDeadline);
@@ -91,6 +91,6 @@ export function buildPlan(opportunities, { today, headline = null, notes = [], k
     missed,
     counts,
     notes,
-    conflicts: findConflicts(items),
+    conflicts: findConflicts(items, ruleEvidence),
   };
 }

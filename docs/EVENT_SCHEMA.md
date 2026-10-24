@@ -166,7 +166,9 @@ Rules:
   "notes": ["MahaDBT: AY 2026-27 applications only via MahaDBT 2.0 (mahadbt2.maharashtra.gov.in)"],
   "conflicts": [              // schemes that cannot be held together (server/src/rank/conflicts.js)
     { "id": "nsp-one-merit-scheme", "ids": ["nsp:pm-yasasvi-college-obc-ebc-dnt", "nsp:pm-usp-csss"],
-      "text": "… you can apply for only one merit scheme on NSP, so pick one.", "sourceUrl": "https://scholarships.gov.in/" }
+      "title": "PM YASASVI (college) and PM-USP CSSS", "text": "These may not be combinable. Check the current NSP rules before applying.",
+      "sourceUrl": "https://scholarships.gov.in/",
+      "officialRule": { "quote": "…", "sourceUrl": "…", "checkedAt": "…" } }   // only when a page fetched in this run states the rule
   ]
 }
 ```

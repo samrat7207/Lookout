@@ -49,12 +49,14 @@ function fmtDate(iso) {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
 
+export const daysLeftText = (n) => (n === 0 ? 'closes today' : n === 1 ? '1 day left' : `${n} days left`);
+
 const FIT_WORDS = { match: 'you match', conditional: 'you may match (conditions below)', unclear: 'eligibility is unclear' };
 
 /** The plain-words "Why this ranking" line. */
 function rankWhy(item, rank, prev) {
   const when = item.deadline
-    ? `Closes ${fmtDate(item.deadline)} (${item.daysLeft === 0 ? 'today' : `${item.daysLeft} days left`})`
+    ? `Closes ${fmtDate(item.deadline)} (${daysLeftText(item.daysLeft)})`
     : 'No deadline is published, so it is listed after every dated item';
   const tie = prev && prev.deadline === item.deadline && prev.fit !== item.fit
     ? `; same date as #${rank - 1}, placed after it because ${FIT_WORDS[item.fit]}`

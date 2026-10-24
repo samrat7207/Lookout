@@ -1,12 +1,12 @@
 # Contributors
 
-| Name | Role | Folder |
-|---|---|---|
-| Samrat Kunte | Lead: city, backend, integration | [team/samrat/](team/samrat/README.md) |
-| Aman Kumar | Application Kit data and eligibility rules | [team/aman/](team/aman/) |
-| Aniket Gupta | Opportunities research, pitch and demo script | [team/aniket/](team/aniket/) |
+| Name | Role |
+|---|---|
+| Samrat Kunte | Lead: city, backend, integration |
+| Aman Kumar | Application Kit data and eligibility rules |
+| Aniket Gupta | Opportunities research, pitch and demo script |
 
-How we work (branches, pull requests, commit identity): [team/README.md](team/README.md).
+Everyone commits under their own name, through pull requests.
 
 ## Contributions
 

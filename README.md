@@ -23,7 +23,7 @@ Built in 6 stages ([docs/MILESTONES.md](docs/MILESTONES.md)).
 
 ## Team
 
-Samrat Kunte (lead: city, backend, integration), Aman Kumar (Application Kit data, eligibility rules), Aniket Gupta (opportunities research, pitch and demo). How we work (branches, pull requests, everyone commits under their own name): [team/README.md](team/README.md). Who did what: [CONTRIBUTORS.md](CONTRIBUTORS.md).
+Samrat Kunte (lead: city, backend, integration), Aman Kumar (Application Kit data, eligibility rules), Aniket Gupta (opportunities research, pitch and demo). Who did what: [CONTRIBUTORS.md](CONTRIBUTORS.md).
 
 ## Docs
 

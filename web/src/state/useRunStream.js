@@ -7,7 +7,6 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { initialState, reduce } from './reducer.js';
 
 const KEY = 'lookout.runId';
-const RECORDING = 'fake-run';
 
 function stored() {
   try {
@@ -37,8 +36,26 @@ export function useRunStream() {
   const [runId, setRunId] = useState(stored);
   const [playback, setPlayback] = useState({ paused: false, speed: 1 });
   const [startError, setStartError] = useState(null);
+  const [health, setHealth] = useState(null); // { defaultMode, tinyfishKeyPresent, lastRecording }
   const runRef = useRef(runId);
   runRef.current = runId;
+
+  useEffect(() => {
+    fetch('/api/health')
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setHealth)
+      .catch(() => setHealth(null));
+  }, []);
+
+  // a live run that fell back to a recording becomes pausable: read its controls
+  const replayingNow = state.runMode && state.runMode.mode !== 'live';
+  useEffect(() => {
+    if (!runId || !replayingNow) return;
+    fetch(`/api/runs/${encodeURIComponent(runId)}/control`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => j?.control && runRef.current === runId && setPlayback(j.control))
+      .catch(() => {});
+  }, [runId, replayingNow]);
 
   useEffect(() => {
     if (!runId) return undefined;
@@ -78,12 +95,12 @@ export function useRunStream() {
     return () => es.close();
   }, [runId]);
 
-  /** Replays recordings/fake-run.jsonl through the server as a new run. */
-  const start = useCallback(async (speed = playback.speed) => {
+  /** Starts a run: mode live | replay | mock (the server falls back from live to replay by itself). */
+  const start = useCallback(async (mode, speed = playback.speed) => {
     setStartError(null);
     dispatch({ kind: 'local.reset', starting: true });
     try {
-      const { runId: id, control } = await post('/api/runs', { mode: 'mock', recording: RECORDING, speed });
+      const { runId: id, control } = await post('/api/runs', { mode, speed });
       store(id);
       setPlayback(control ?? { paused: false, speed });
       setRunId(id);
@@ -105,5 +122,5 @@ export function useRunStream() {
     }
   }, []);
 
-  return { state, runId, playback, start, control, startError };
+  return { state, runId, playback, start, control, startError, health };
 }

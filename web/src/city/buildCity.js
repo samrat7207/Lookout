@@ -5,7 +5,7 @@ import { createBatch, rng } from './batch.js';
 import {
   ASPHALT, BASE, BLOCK, BLOCK_CENTERS, KERB_H, LOT_TOP as G, ROAD_LINES, ROAD_TOP, ROAD_W,
 } from './layout.js';
-import { bench, building, flowerBed, hedge, lamp, tree } from './props.js';
+import { BENCH_SPOTS, bench, building, flowerBed, hedge, lamp, tree } from './props.js';
 import { centralHall, foundationTowers, opportunitiesDistrict, stateOffice, townHall, watchtower } from './landmarks.js';
 
 const PI = Math.PI;
@@ -83,6 +83,38 @@ function streetFurniture(b, r) {
       tree(b, r, bx - e, bz + u, 0.62, 'round', KERB_H);
     }
   }
+  // bins beside the mid-side lamps
+  for (const bx of BLOCK_CENTERS) {
+    for (const bz of BLOCK_CENTERS) {
+      for (const [x, z] of [[bx + 0.45, bz + e], [bx + e, bz + 0.45]]) {
+        b.cyl(x, KERB_H, z, 0.24, 0.38, '#2f6b4f');
+        b.cyl(x, KERB_H + 0.38, z, 0.27, 0.04, '#24533d');
+      }
+    }
+  }
+}
+
+/** Bus stop on the shops block, facing the inner road at x = 7. */
+function busStop(b) {
+  const x = 9.65, z = -2.5;
+  for (const dz of [-1.0, 1.0]) b.box(x + 0.3, G, z + dz, 0.06, 1.8, 0.06, '#5b6169');
+  b.box(x, G + 1.8, z, 0.9, 0.08, 2.3, '#1d4e89');
+  b.glass(x + 0.33, G + 0.15, z, 0.03, 1.5, 2.0, '#cfeaf7');
+  b.box(x + 0.15, G, z, 0.3, 0.42, 1.5, '#8a8f96');
+  b.box(x + 0.15, G + 0.42, z, 0.34, 0.05, 1.6, '#c48a5a');
+  b.cyl(x - 0.3, G, z - 1.4, 0.06, 2.0, '#5b6169');
+  b.box(x - 0.3, G + 1.75, z - 1.4, 0.05, 0.36, 0.36, '#1d4e89');
+}
+
+/** Two small market stalls on the watchtower plaza: striped canopies, goods on the counter. */
+function stalls(b, r) {
+  const goods = ['#e63946', '#f4a261', '#2a9d8f', '#e9c46a', '#8ab17d', '#ffffff'];
+  for (const [x, z, c] of [[-3.0, -9.8, '#e15759'], [3.0, -9.8, '#4e79a7']]) {
+    for (const [dx, dz] of [[-0.6, -0.35], [0.6, -0.35], [-0.6, 0.35], [0.6, 0.35]]) b.cyl(x + dx, G, z + dz, 0.06, 1.4, '#8a8f96');
+    b.box(x, G, z + 0.1, 1.2, 0.7, 0.55, '#c48a5a');
+    for (let k = 0; k < 6; k++) b.box(x - 0.45 + k * 0.18, G + 0.7, z + 0.15, 0.13, 0.1 + r() * 0.08, 0.2, r.pick(goods));
+    for (let k = 0; k < 5; k++) b.tilted(x - 0.56 + k * 0.28, G + 1.38, z, 0.28, 0.05, 1.0, k % 2 ? '#ffffff' : c, 0.18);
+  }
 }
 
 /** Homes block: four apartment buildings with balconies around a courtyard. */
@@ -155,6 +187,7 @@ function park(b, r) {
 }
 
 export function buildCity() {
+  BENCH_SPOTS.length = 0; // filled by bench() below
   const b = createBatch();
   const r = rng(20261024);
   ground(b);
@@ -169,5 +202,7 @@ export function buildCity() {
   shops(b, r);
   park(b, r);
   streetFurniture(b, r);
-  return { batch: b };
+  busStop(b);
+  stalls(b, r);
+  return { batch: b, benches: [...BENCH_SPOTS] };
 }

@@ -31,6 +31,7 @@ IDs:
 
 | kind | Emitted when | payload |
 |---|---|---|
+| `run.mode` | First event of a live, replay or mock run | `{ mode: "live"\|"replay"\|"mock", recording?, recordedAt?, fallbackReason? }`. The city shows a "Replaying recorded run" badge unless `mode` is live. The first one wins (a replayed live recording carries its own). |
 | `run.started` | The run is created | `{ profile, mode, today: "2026-10-24", agents: [agentId...] }` |
 | `agent.spawned` | An agent appears at Town Hall | `{ name, role }` |
 | `agent.walking` | The agent heads to a building | `{ to: building, reason: "Checking NSP scheme list" }` |
@@ -166,7 +167,9 @@ Rules:
   "notes": ["MahaDBT: AY 2026-27 applications only via MahaDBT 2.0 (mahadbt2.maharashtra.gov.in)"],
   "conflicts": [              // schemes that cannot be held together (server/src/rank/conflicts.js)
     { "id": "nsp-one-merit-scheme", "ids": ["nsp:pm-yasasvi-college-obc-ebc-dnt", "nsp:pm-usp-csss"],
-      "text": "… you can apply for only one merit scheme on NSP, so pick one.", "sourceUrl": "https://scholarships.gov.in/" }
+      "title": "PM YASASVI (college) and PM-USP CSSS", "text": "These may not be combinable. Check the current NSP rules before applying.",
+      "sourceUrl": "https://scholarships.gov.in/",
+      "officialRule": { "quote": "…", "sourceUrl": "…", "checkedAt": "…" } }   // only when a page fetched in this run states the rule
   ]
 }
 ```

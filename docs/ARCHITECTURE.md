@@ -75,7 +75,7 @@ HACKIIITD/
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/api/health` | `{ ok, mode, tinyfishKeyPresent: bool }`. Never returns the key. |
-| `POST` | `/api/runs` | Body `{ profile: {course, state, category, gender?, disability?}, mode: "live"|"mock", recording?: "demo-golden", speed?: 1 }` → `{ runId }` |
+| `POST` | `/api/runs` (`mode`: `live` \| `replay` \| `mock` \| `fake`; default from `MODE`) | Body `{ profile: {course, state, category, gender?, disability?}, mode: "live"|"mock", recording?: "demo-golden", speed?: 1 }` → `{ runId }` |
 | `GET` | `/api/runs/:runId/events` | SSE stream. On connect it replays buffered history first, then live events. |
 | `GET` | `/api/recordings` | List of available recordings for the mock dropdown |
 | `GET` / `POST` | `/api/runs/:runId/control` | Replays only: read or set `{ paused, speed }` (speed 0 to 16). 409 for live and fake runs. |

@@ -24,13 +24,40 @@ function useElapsed(state, playback) {
 }
 
 const STATE_LABEL = { idle: 'No run yet', starting: 'Starting…', running: 'Running', complete: 'Run complete', failed: 'Run failed' };
+const MODES = [
+  { id: 'live', label: 'Live', title: 'Real TinyFish Search + Fetch (falls back to the last recording)' },
+  { id: 'replay', label: 'Replay', title: 'Replay the last real recorded run' },
+  { id: 'mock', label: 'Mock', title: 'Scripted run built from recon data' },
+];
 
-/** Header: run state (sources done / total, elapsed) and the replay controls. */
-export function RunBar({ state, playback, start, control, startError }) {
+function fmtStamp(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+/** The honest badge: what the city is showing right now. */
+function ModeBadge({ runMode }) {
+  if (!runMode) return null;
+  if (runMode.mode === 'live') return <div className="runbar__mode runbar__mode--live">● LIVE: reading real pages through TinyFish Search and Fetch</div>;
+  const what = runMode.mode === 'mock' ? 'Mock run (scripted from recon data)' : 'Replaying recorded run';
+  return (
+    <div className="runbar__mode">
+      <span className="runbar__replay">{what}</span>
+      {runMode.recording && ` · ${runMode.recording}.jsonl`}
+      {runMode.recordedAt && `, recorded ${fmtStamp(runMode.recordedAt)}`}
+      {runMode.fallbackReason && <span className="runbar__why"> · {runMode.fallbackReason}</span>}
+    </div>
+  );
+}
+
+/** Header: mode, run state (sources done / total, elapsed) and the replay controls. */
+export function RunBar({ state, playback, start, control, startError, health, mode, setMode, onViewPlan }) {
   const elapsed = useElapsed(state, playback);
   const { done, total } = sourceCounts(state);
   const running = state.status === 'running';
   const hasRun = state.status !== 'idle';
+  const canControl = running && state.replay;
 
   return (
     <div className="runbar">
@@ -45,33 +72,47 @@ export function RunBar({ state, playback, start, control, startError }) {
             </span>
             <span className="runbar__sep">·</span>
             <span className="runbar__time">{fmtTime(elapsed)}</span>
-            {playback.paused && running && <span className="runbar__badge">paused</span>}
+            {playback.paused && canControl && <span className="runbar__badge">paused</span>}
             {state.connection === 'reconnecting' && <span className="runbar__badge runbar__badge--warn">reconnecting…</span>}
             {state.connection === 'lost' && state.status === 'running' && <span className="runbar__badge runbar__badge--err">stream lost</span>}
           </>
         )}
       </div>
       <div className="runbar__controls">
-        {!hasRun ? (
-          <button type="button" className="btn btn--primary" onClick={() => start()}>
-            ▶ Play recorded run
-          </button>
-        ) : (
+        <div className="seg" role="group" aria-label="Mode">
+          {MODES.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              title={m.title}
+              className={`seg__btn${mode === m.id ? ' seg__btn--on' : ''}`}
+              onClick={() => setMode(m.id)}
+            >
+              {m.label}
+              {m.id === 'live' && health && !health.tinyfishKeyPresent ? ' (no key)' : ''}
+            </button>
+          ))}
+        </div>
+        <button type="button" className="btn btn--primary" onClick={() => start(mode, playback.speed)}>
+          {hasRun ? '↺ Restart run' : '▶ Start run'}
+        </button>
+        {hasRun && (
           <>
             <button
               type="button"
               className="btn"
-              disabled={!running}
+              disabled={!canControl}
+              title={canControl ? '' : 'Only replays can be paused'}
               onClick={() => control({ paused: !playback.paused })}
-              aria-label={playback.paused ? 'Resume' : 'Pause'}
             >
-              {playback.paused ? '▶ Play' : '❚❚ Pause'}
+              {playback.paused && canControl ? '▶ Play' : '❚❚ Pause'}
             </button>
             <div className="seg" role="group" aria-label="Replay speed">
               {SPEEDS.map((sp) => (
                 <button
                   key={sp}
                   type="button"
+                  disabled={!canControl}
                   className={`seg__btn${playback.speed === sp ? ' seg__btn--on' : ''}`}
                   onClick={() => control({ speed: sp })}
                 >
@@ -79,13 +120,15 @@ export function RunBar({ state, playback, start, control, startError }) {
                 </button>
               ))}
             </div>
-            <button type="button" className="btn" onClick={() => start(playback.speed)}>
-              ↺ Restart run
-            </button>
           </>
         )}
+        {state.plan && (
+          <button type="button" className="btn btn--accent" onClick={onViewPlan}>
+            📋 View plan
+          </button>
+        )}
       </div>
-      {hasRun && <div className="runbar__mode">Replaying the recorded fake run (recordings/fake-run.jsonl): no live calls</div>}
+      <ModeBadge runMode={state.runMode} />
       {startError && <div className="runbar__error">{startError}</div>}
     </div>
   );

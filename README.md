@@ -9,7 +9,16 @@ A low-poly 3D city where each TinyFish web agent is a little character and each 
 
 ## Status
 
-Built in 6 stages ([docs/MILESTONES.md](docs/MILESTONES.md)). **Stages 1 and 2 are done:** the low-poly city with walking citizens, and agent characters driven only by the SSE event stream (a recorded fake run replayed through the server, with play/pause, 1×/2×/4× speed, restart, an event log and click-for-details cards). Next is Stage 3 (real TinyFish data), which needs the API key. Server pieces already done: the event bus, the SSE stream with `Last-Event-ID`, the JSONL recorder, the scripted fake run, mock replay with pause and speed control, the NSP parser, the TinyFish client skeleton, the plan sorter with conflict warnings, and the kit builder.
+Built in 6 stages ([docs/MILESTONES.md](docs/MILESTONES.md)).
+
+| Stage | State |
+|---|---|
+| 1 City | ✅ done, upgraded: humanoid citizens with walk cycles, uniformed agents with props, signs, bus stop, stalls, haze, day-to-dusk cycle, click to zoom |
+| 2 Event-driven characters | ✅ done |
+| 3 Real data | ✅ **thin slice**: TinyFish Search + Fetch only, on NSP, MahaDBT 1.0 and Buddy4Study; persona rules; ranked by deadline, then fit; recorded to `recordings/real-run.jsonl` |
+| 4 Plan screen and Application Kit | ✅ done: conflicts panel, ranked list, read-only kits, "Not applicable" reasons, sources footer, `?demo` |
+| 5 Opportunities and Watchtower | ⏭ skipped for now (planned) |
+| 6 Polish and rehearsal | partly: LIVE / REPLAY / MOCK modes with an automatic fallback are done |
 
 ## Team
 
@@ -41,10 +50,10 @@ Samrat Kunte (lead: city, backend, integration), Aman Kumar (Application Kit dat
 Two terminals:
 
 ```sh
-# 1. server (event stream, fake run, replay)
+# 1. server
 cd server
 npm install
-npm start                # http://localhost:8787
+npm start                # http://localhost:8787 (reads server/.env if present)
 
 # 2. city
 cd web
@@ -52,18 +61,32 @@ npm install
 npm run dev              # http://localhost:5173  (add ?stats for FPS and draw calls)
 ```
 
-Open http://localhost:5173 and press **Play recorded run**. The server replays `recordings/fake-run.jsonl` (real recon data, no live calls) and the agents walk, work, find, fail and retry from those events. Use Pause, 1×/2×/4× and Restart run in the top bar. Click any building or character for its status, last event and URL. Reloading the page mid-run picks the same run back up. Without the server, the city still loads, but the button reports that it cannot start a run.
+Pick a mode in the top bar and press **Start run**:
+
+| Mode | What it does | Needs |
+|---|---|---|
+| **Live** | Real TinyFish Search + Fetch on NSP, MahaDBT 1.0 and Buddy4Study, about 30 s. Recorded to `recordings/<runId>.jsonl`. If the key is missing or TinyFish is unreachable, it **falls back** to the last recording and says so in a "Replaying recorded run" badge. | `TINYFISH_API_KEY` in `server/.env` (copy `server/.env.example`) |
+| **Replay** | Replays the last real run (`recordings/real-run.jsonl`), with pause, 1×/2×/4× and restart. | nothing |
+| **Mock** | Replays the scripted run built from recon data (`recordings/fake-run.jsonl`). | nothing |
+
+`MODE=live|replay|mock` in `server/.env` sets the default (empty: live with a key, else replay). The plan opens when the run finishes, or with **View plan**. `http://localhost:5173/?demo` plays a replay at 2× and opens the plan (rehearsal); `?demo=live` and `?demo=mock` pick the mode.
+
+Refresh the real recording (one live run with the sample student, about 30 s, Search and Fetch only):
+
+```sh
+cd server && npm run capture      # writes recordings/real-run.jsonl; a failed run keeps the old file
+```
 
 Tests:
 
 ```sh
-cd server && npm test    # parser, bus, SSE resume, replay control, fake run (19)
+cd server && npm test    # NSP and Buddy4Study parsers, ranker, live run on fixtures, fallback, SSE, replay, fake run (26)
 cd web && npm test       # event -> character state reducer (5)
 ```
 
 Raw stream, without the city:
 
 ```sh
-curl -s -X POST localhost:8787/api/runs -H 'Content-Type: application/json' -d '{"mode":"mock","recording":"fake-run"}'
+curl -s -X POST localhost:8787/api/runs -H 'Content-Type: application/json' -d '{"mode":"replay"}'
 curl -N localhost:8787/api/runs/<runId>/events
 ```

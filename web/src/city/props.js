@@ -111,8 +111,12 @@ export function lamp(b, x, z, y = G) {
   b.sphere(x, y + 1.46, z, 0.18, '#fff4c9', 'glow');
 }
 
+/** Every bench placed while building the city: where citizens can sit (seat at y + 0.26). */
+export const BENCH_SPOTS = [];
+
 /** Bench facing +z (ry = 0) or rotated by quarter turns. */
 export function bench(b, x, z, ry = 0, y = G) {
+  BENCH_SPOTS.push({ x, z, ry, seatY: y + 0.26 });
   const turn = Math.round(ry / (Math.PI / 2)) % 2 !== 0;
   const [w, d] = turn ? [0.32, 0.9] : [0.9, 0.32];
   const back = [Math.sin(ry) * -0.14, Math.cos(ry) * -0.14];

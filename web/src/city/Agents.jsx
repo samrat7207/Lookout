@@ -12,30 +12,88 @@ import { STATUS, TOOL_ICON, placeName, roleColor } from '../ui/agentStyle.js';
 // roads, arrival is visual only, and the next event decides what happens next.
 
 const RING_GEO = new THREE.RingGeometry(0.42, 0.56, 32).rotateX(-Math.PI / 2);
-const SKIN = '#f2c9a0';
+const SKIN = '#e8b98f';
+const AGENT_SCALE = 1.55; // citizens are about 1 m tall; agents about 1.6 m
 
-/** One merged, vertex-coloured mesh per character (body, backpack, head, hat): one draw call. */
-function characterGeometry(color) {
-  const part = (geo, hex) => {
-    const g = geo.toNonIndexed();
-    const c = new THREE.Color(hex);
-    const n = g.getAttribute('position').count;
-    g.setAttribute('color', new THREE.Float32BufferAttribute(Array.from({ length: n }, () => [c.r, c.g, c.b]).flat(), 3));
-    for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'color') g.deleteAttribute(k);
-    return g;
-  };
-  return mergeGeometries([
-    part(new THREE.CapsuleGeometry(0.22, 0.42, 4, 10).translate(0, 0.43, 0), color),
-    part(new THREE.BoxGeometry(0.3, 0.34, 0.14).translate(0, 0.62, -0.22), shade(color, -0.4)),
-    part(new THREE.IcosahedronGeometry(0.21, 2).translate(0, 1.12, 0), SKIN),
-    part(new THREE.CylinderGeometry(0.3, 0.3, 0.04, 14).translate(0, 1.26, 0), shade(color, -0.25)),
-    part(new THREE.ConeGeometry(0.24, 0.34, 10).translate(0, 1.44, 0), shade(color, -0.25)),
-  ]);
+// Jobs decide the uniform and the prop (CITY_DESIGN §3).
+const JOB = {
+  'nsp-scout': 'researcher',
+  'foundations-scout': 'researcher',
+  'opps-scout': 'researcher',
+  'deep-diver': 'researcher',
+  'mahadbt-scout': 'verifier',
+  watchman: 'verifier',
+  mayor: 'orchestrator',
+};
+export const jobOf = (id) => JOB[id] ?? 'researcher';
+
+// limbs hinge at the top (hip or shoulder), in citizen units
+const LEG_GEO = new THREE.BoxGeometry(0.115, 0.44, 0.125).translate(0, -0.22, 0);
+const ARM_GEO = new THREE.BoxGeometry(0.08, 0.36, 0.09).translate(0, -0.18, 0);
+const HIP = 0.44;
+const SHOULDER = 0.78;
+
+function coloured(geo, hex) {
+  const g = geo.index ? geo.toNonIndexed() : geo;
+  const c = new THREE.Color(hex);
+  const n = g.getAttribute('position').count;
+  g.setAttribute('color', new THREE.Float32BufferAttribute(Array.from({ length: n }, () => [c.r, c.g, c.b]).flat(), 3));
+  for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'color') g.deleteAttribute(k);
+  return g;
+}
+
+/** Upper body (torso, head, hair, uniform details, prop) merged into one mesh, plus limb colours. */
+function agentLook(id) {
+  const color = roleColor(id);
+  const job = jobOf(id);
+  const parts = [];
+  const add = (geo, hex) => parts.push(coloured(geo, hex));
+  const box = (w, h, d, x, y, z, hex, rx = 0) => add(new THREE.BoxGeometry(w, h, d).rotateX(rx).translate(x, y, z), hex);
+  const torso = (hex) => add(new THREE.CylinderGeometry(0.16, 0.135, 0.38, 8).scale(1, 1, 0.64).translate(0, HIP - 0.02 + 0.19, 0), hex);
+
+  let sleeve = color;
+  let pants = '#2f3542';
+  if (job === 'orchestrator') {
+    sleeve = '#24324a';
+    pants = '#24324a';
+    torso('#24324a'); // dark suit
+    box(0.07, 0.2, 0.01, 0, 0.7, 0.1, '#ffffff'); // shirt
+    box(0.03, 0.17, 0.012, 0, 0.69, 0.106, color); // tie in the role colour
+    box(0.2, 0.26, 0.016, 0.06, 0.6, 0.17, '#1c1f24', -0.5); // tablet
+    box(0.17, 0.22, 0.004, 0.06, 0.605, 0.18, '#5fb3f0', -0.5); // tablet screen
+  } else if (job === 'verifier') {
+    sleeve = '#f4f6f8';
+    pants = '#26324a';
+    torso('#f4f6f8'); // white shirt
+    box(0.27, 0.3, 0.13, 0, 0.63, 0.012, color); // vest in the role colour
+    box(0.05, 0.035, 0.012, -0.07, 0.72, 0.085, '#ffd166'); // badge
+    box(0.17, 0.23, 0.015, 0.07, 0.6, 0.17, '#8b5a2b', -0.35); // clipboard
+    box(0.14, 0.18, 0.004, 0.07, 0.6, 0.179, '#ffffff', -0.35); // paper
+    box(0.06, 0.02, 0.02, 0.07, 0.71, 0.14, '#9aa0a6', -0.35); // clip
+  } else {
+    torso(color); // researcher sweater
+    box(0.13, 0.04, 0.12, 0, 0.8, 0.0, '#ffffff'); // collar
+    box(0.3, 0.018, 0.21, 0.06, 0.55, 0.15, '#aab2bd', 0.25); // laptop base
+    box(0.3, 0.2, 0.012, 0.06, 0.64, 0.05, '#c3c9d1', 0.25); // laptop lid
+  }
+  add(new THREE.CylinderGeometry(0.045, 0.05, 0.06, 8).translate(0, 0.83, 0), SKIN); // neck
+  add(new THREE.IcosahedronGeometry(0.105, 1).translate(0, 0.93, 0), SKIN); // head
+  if (job === 'verifier') {
+    add(new THREE.CylinderGeometry(0.115, 0.115, 0.06, 12).translate(0, 1.0, 0), color); // uniform cap
+    box(0.16, 0.012, 0.09, 0, 0.975, 0.1, shade(color, -0.3)); // brim
+  } else {
+    add(new THREE.SphereGeometry(0.118, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.945, -0.006), job === 'orchestrator' ? '#3a3a3a' : '#2b1d14');
+  }
+  if (job === 'researcher') {
+    for (const sx of [-0.042, 0.042]) box(0.06, 0.035, 0.008, sx, 0.94, 0.104, '#1c1f24'); // glasses
+    box(0.03, 0.008, 0.008, 0, 0.945, 0.106, '#1c1f24');
+  }
+  return { upper: mergeGeometries(parts), sleeve, pants };
 }
 const FACE_CAMERA = Math.PI / 4; // the iso camera looks from +x +z
 
-/** Live positions, shared with the DOM tag tracker. id -> THREE.Vector3 */
-const positions = new Map();
+/** Live positions, shared with the DOM tag tracker and the citizens (who step aside). id -> THREE.Vector3 */
+export const positions = new Map();
 const tagEls = new Map();
 const tmp = new THREE.Vector3();
 
@@ -44,16 +102,21 @@ function Character({ agent, playback, selected, onSelect, lane }) {
   const body = useRef();
   const ring = useRef();
   const isMayor = agent.id === 'mayor';
-  const color = roleColor(agent.id);
-  const geo = useMemo(() => characterGeometry(color), [color]);
+  const look = useMemo(() => agentLook(agent.id), [agent.id]);
   const mats = useMemo(() => ({
     body: new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.7 }),
+    sleeve: new THREE.MeshStandardMaterial({ color: look.sleeve, flatShading: true, roughness: 0.8 }),
+    pants: new THREE.MeshStandardMaterial({ color: look.pants, flatShading: true, roughness: 0.85 }),
     ring: new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false }),
-  }), []);
+  }), [look]);
   useEffect(() => () => {
-    geo.dispose();
+    look.upper.dispose();
     Object.values(mats).forEach((m) => m.dispose());
-  }, [geo, mats]);
+  }, [look, mats]);
+  const legL = useRef();
+  const legR = useRef();
+  const armL = useRef();
+  const armR = useRef();
 
   // walk simulation (visual only)
   const sim = useRef(null);
@@ -125,17 +188,24 @@ function Character({ agent, playback, selected, onSelect, lane }) {
     g.position.copy(s.pos);
     g.rotation.y = s.heading;
     const t = paused ? 0 : time;
-    body.current.position.y = moving ? Math.abs(Math.sin(t * 11)) * 0.09 : st === 'done' ? Math.max(0, Math.sin(t * 3)) * 0.05 : 0;
-    body.current.rotation.z = st === 'working' && !moving ? Math.sin(t * 9) * 0.1 : 0;
-    body.current.rotation.x = moving ? 0.12 : 0;
+    // walk with purpose: quick, even strides; the prop hand stays in front
+    const cyc = t * 9;
+    const swing = moving ? Math.sin(cyc) * 0.6 : 0;
+    legL.current.rotation.x = swing;
+    legR.current.rotation.x = -swing;
+    armL.current.rotation.x = moving ? -swing * 0.8 : st === 'working' ? -0.4 + Math.sin(t * 6) * 0.25 : 0.05;
+    armR.current.rotation.x = -0.95; // holds the laptop, clipboard or tablet
+    body.current.position.y = moving ? Math.abs(Math.sin(cyc)) * 0.025 : st === 'done' ? Math.max(0, Math.sin(t * 3)) * 0.03 : 0;
+    body.current.rotation.x = moving ? 0.06 : st === 'working' ? 0.1 : 0;
     // failed: a small shake so it reads at a glance
-    if (st === 'failed' && !moving) body.current.position.x = Math.sin(t * 40) * 0.03;
+    if (st === 'failed' && !moving) body.current.position.x = Math.sin(t * 40) * 0.02;
     else body.current.position.x = 0;
 
     mats.ring.color.set(STATUS[st]?.color ?? '#ffffff');
     const k = selected ? 1.25 + Math.sin(time * 5) * 0.08 : 1;
     ring.current.scale.set(k, 1, k);
     mats.body.emissive.set(st === 'failed' ? '#7a0010' : '#000000');
+    mats.sleeve.emissive.set(st === 'failed' ? '#7a0010' : '#000000');
   });
 
   const click = (e) => {
@@ -151,7 +221,13 @@ function Character({ agent, playback, selected, onSelect, lane }) {
   return (
     <group ref={group}>
       <mesh ref={ring} geometry={RING_GEO} material={mats.ring} position={[0, 0.03, 0]} renderOrder={2} />
-      <mesh ref={body} geometry={geo} material={mats.body} castShadow onClick={click} onPointerOver={hover(true)} onPointerOut={hover(false)} />
+      <group ref={body} scale={AGENT_SCALE} onClick={click} onPointerOver={hover(true)} onPointerOut={hover(false)}>
+        <mesh geometry={look.upper} material={mats.body} castShadow />
+        <mesh ref={legL} geometry={LEG_GEO} material={mats.pants} position={[-0.068, HIP, 0]} castShadow />
+        <mesh ref={legR} geometry={LEG_GEO} material={mats.pants} position={[0.068, HIP, 0]} castShadow />
+        <mesh ref={armL} geometry={ARM_GEO} material={mats.sleeve} position={[-0.2, SHOULDER, 0]} />
+        <mesh ref={armR} geometry={ARM_GEO} material={mats.sleeve} position={[0.2, SHOULDER, 0]} />
+      </group>
     </group>
   );
 }

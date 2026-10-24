@@ -1,6 +1,6 @@
 // Thin TinyFish REST client (TINYFISH_INTEGRATION §1–2). Server-only: this is the
 // ONLY file that reads TINYFISH_API_KEY, and the key never appears in events or logs.
-// Agent and Monitor calls arrive in M3.
+// Only Search and Fetch are used: no Agent API, no Monitor, no logins.
 
 const SEARCH_URL = 'https://api.search.tinyfish.ai';
 const FETCH_URL = 'https://api.fetch.tinyfish.ai';
@@ -27,7 +27,21 @@ function apiKey() {
   return key;
 }
 
+const BACKOFF_MAX_MS = 15_000;
+
+/** One polite retry when TinyFish says "slow down" (429) or is briefly unavailable (503). */
 async function call(url, init, timeoutMs) {
+  try {
+    return await callOnce(url, init, timeoutMs);
+  } catch (err) {
+    if (err.status !== 429 && err.status !== 503) throw err;
+    const wait = Math.min((Number(err.retryAfter) || 5) * 1000, BACKOFF_MAX_MS);
+    await new Promise((r) => setTimeout(r, wait));
+    return callOnce(url, init, timeoutMs);
+  }
+}
+
+async function callOnce(url, init, timeoutMs) {
   let res;
   try {
     res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
@@ -37,12 +51,14 @@ async function call(url, init, timeoutMs) {
   }
   const body = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new TinyFishError({
+    const err = new TinyFishError({
       code: body?.error?.code ?? `HTTP_${res.status}`,
       message: body?.error?.message ?? res.statusText,
       status: res.status,
       requestId: body?.request_id ?? res.headers.get('x-request-id'),
     });
+    err.retryAfter = res.headers.get('retry-after');
+    throw err;
   }
   return body;
 }

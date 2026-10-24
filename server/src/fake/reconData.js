@@ -125,6 +125,12 @@ export const mahadbt = [
 
 // Read on the same scheme pages but NOT a match for an OBC student; the fake run
 // shows them as honest "skipped" lines instead of listing them in the plan.
+// Schemes read during recon that do not apply to the sample student (shown as "Not applicable").
+export const NOT_APPLICABLE = [
+  { title: 'AICTE - Pragati Scholarship Scheme (Technical Degree)', reason: 'For girl students only; the profile is male.', sourceUrl: NSP_ALL },
+  { title: 'PM YASASVI Central Sector Scheme Of Top Class Education In Schools For OBC, EBC And DNT Students', reason: 'School students only; he is in college.', sourceUrl: NSP_ALL },
+];
+
 export const MAHADBT_SKIPPED = [
   {
     title: 'Rajarshri Chhatrapati Shahu Maharaj Fee Reimbursement Scheme',
@@ -165,7 +171,29 @@ export const foundations = [
   },
 ];
 
-// Seen but not matched for this persona, kept here so the fake run can show an honest "skipped".
+// Read in recon; B.Tech is neither named nor excluded, so it is listed as "unclear".
+foundations.push({
+  id: 'buddy4study:tata-capital-pankh-general-ug',
+  kind: 'scholarship',
+  fit: 'unclear',
+  title: 'Tata Capital Pankh Scholarship Programme for General Graduation Students (2026-27)',
+  deadline: '2026-10-26',
+  deadlineLabel: 'Application closes',
+  sourceUrl: 'https://www.buddy4study.com/page/the-tata-capital-pankh-scholarship-programme',
+  matchReason: 'Unclear: "General Graduation" names B.Com, B.Sc and B.A; B.Tech is neither named nor excluded · income ≤ ₹4 lakh, 60%+ marks',
+  amount: 'up to INR 15,000',
+  source: 'buddy4study',
+  dateSource: 'parsed',
+  evidence: 'EligibilityDeadline Date: 26-Oct-2026',
+  matchedOn: [],
+  bubble: 'Tata Pankh (unclear for B.Tech): 26 Oct',
+  via: 'fetch',
+  cached: false,
+  needsVerification: true,
+  scholarship: { portal: 'external', schemeType: 'Merit', openFrom: null, verificationTill: null, conditional: true },
+});
+
+// Kept for the progress line; the scheme itself is listed above as "unclear".
 export const FOUNDATIONS_SKIPPED = {
   title: 'Tata Capital Pankh Scholarship Programme for General Graduation / Polytechnic / Diploma / ITI Students (2026–27)',
   reason: 'unclear: "General Graduation" names B.Com, B.Sc and B.A, and B.Tech is neither named nor excluded',
@@ -256,3 +284,7 @@ export const opportunities = [
     event: { startsOn: '2026-10-05', endsOn: '2026-11-13', mode: 'online', location: 'Online', organiser: 'HackerEarth' },
   }),
 ];
+
+// Everything above was read on the recon date (docs/RECON_FINDINGS.md).
+export const RECON_CHECKED_AT = '2026-10-24T10:00:00+05:30';
+for (const o of [...nsp, ...mahadbt, ...foundations, ...opportunities]) o.checkedAt ??= RECON_CHECKED_AT;

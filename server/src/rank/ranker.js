@@ -1,12 +1,14 @@
-// Town Hall: score (APPROACH D5), filter, and merge all kinds into ONE list sorted
-// by deadline (EVENT_SCHEMA v2 Plan). M2 adds the keyword eligibility rules (rules.js);
-// here eligibility strength comes from the scout's matchedOn / conditional flags.
+// Town Hall: merge all kinds into ONE list (EVENT_SCHEMA v2 Plan). Rank is decided by
+// exactly two things, in this order:
+//   1. deadline urgency: earliest deadline first; "deadline not published" goes last
+//   2. fit: match before conditional before unclear
+// Ties after that are listed by title only so the order is stable. Nothing else
+// (source, amount, date confidence) changes the rank.
 
 import { findConflicts } from './conflicts.js';
 
-// Lowest possible score for a scout-matched item is 35 (conditional, no date, no parsed
-// date source); the cutoff drops only weaker keyword-only matches from rules.js (M2).
-export const MIN_SCORE = 35;
+export const FIT_ORDER = { match: 0, conditional: 1, unclear: 2 };
+export const NO_DEADLINE = 'deadline not published';
 
 const ACTIONS = {
   nsp: 'Apply on NSP (OTR required)',
@@ -29,13 +31,11 @@ export function daysBetween(fromIso, toIso) {
   return Math.round((Date.parse(toIso) - Date.parse(fromIso)) / 86_400_000);
 }
 
-export function score(opp, today) {
-  const conditional = opp.scholarship?.conditional ?? false;
-  const eligibility = conditional ? 0.5 : Math.min(1, 0.5 + 0.25 * (opp.matchedOn?.length ?? 0));
-  const days = opp.deadline ? daysBetween(today, opp.deadline) : null;
-  const urgency = days === null ? 0.2 : days <= 7 ? 1 : days <= 30 ? 0.7 : 0.4;
-  const confidence = { parsed: 1, snippet: 0.5, none: 0.2 }[opp.dateSource] ?? 0.2;
-  return Math.round(50 * eligibility + 35 * urgency + 15 * confidence);
+/** match | conditional | unclear. Scouts set opp.fit; older payloads only have scholarship.conditional. */
+export function fitOf(opp) {
+  if (opp.fit && opp.fit in FIT_ORDER) return opp.fit;
+  if (/\bunclear\b/i.test(opp.matchReason ?? '')) return 'unclear';
+  return opp.scholarship?.conditional ? 'conditional' : 'match';
 }
 
 function bucket(daysLeft) {
@@ -45,6 +45,25 @@ function bucket(daysLeft) {
   return 'later';
 }
 
+function fmtDate(iso) {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
+export const daysLeftText = (n) => (n === 0 ? 'closes today' : n === 1 ? '1 day left' : `${n} days left`);
+
+const FIT_WORDS = { match: 'you match', conditional: 'you may match (conditions below)', unclear: 'eligibility is unclear' };
+
+/** The plain-words "Why this ranking" line. */
+function rankWhy(item, rank, prev) {
+  const when = item.deadline
+    ? `Closes ${fmtDate(item.deadline)} (${daysLeftText(item.daysLeft)})`
+    : 'No deadline is published, so it is listed after every dated item';
+  const tie = prev && prev.deadline === item.deadline && prev.fit !== item.fit
+    ? `; same date as #${rank - 1}, placed after it because ${FIT_WORDS[item.fit]}`
+    : `; ${FIT_WORDS[item.fit]}`;
+  return `#${rank}: ${when}${tie}.`;
+}
+
 function toItem(opp, today, kitIds) {
   const daysLeft = opp.deadline ? daysBetween(today, opp.deadline) : null;
   return {
@@ -52,33 +71,46 @@ function toItem(opp, today, kitIds) {
     kind: opp.kind,
     title: opp.title,
     source: opp.source,
-    deadline: opp.deadline,
-    deadlineLabel: opp.deadlineLabel,
+    deadline: opp.deadline ?? null,
+    deadlineLabel: opp.deadline ? opp.deadlineLabel : NO_DEADLINE,
     daysLeft,
     bucket: bucket(daysLeft),
-    score: score(opp, today),
-    why: daysLeft === null ? opp.matchReason : `${opp.matchReason} · ${daysLeft === 0 ? 'closes today' : `${daysLeft} days left`}`,
+    fit: fitOf(opp),
+    why: opp.matchReason,
+    amount: opp.amount ?? null,
     sourceUrl: opp.sourceUrl,
+    checkedAt: opp.checkedAt ?? null,
+    needsVerification: opp.needsVerification ?? false,
     action: ACTIONS[opp.source] ?? 'Open the source page',
     ...(kitIds.has(opp.id) && { kitId: kitIds.get(opp.id) }),
   };
 }
 
-/** Deadline ascending, nulls last, ties by score descending. */
-export function byDeadline(a, b) {
+/** Deadline ascending (not published last), then fit, then title. */
+export function byRank(a, b) {
   if (a.deadline !== b.deadline) {
     if (a.deadline === null) return 1;
     if (b.deadline === null) return -1;
     return a.deadline < b.deadline ? -1 : 1;
   }
-  return b.score - a.score;
+  if (a.fit !== b.fit) return FIT_ORDER[a.fit] - FIT_ORDER[b.fit];
+  return a.title.localeCompare(b.title);
 }
 
-export function buildPlan(opportunities, { today, headline = null, notes = [], kitIds = new Map(), now = new Date() }) {
-  const all = opportunities.map((o) => toItem(o, today, kitIds)).filter((i) => i.score >= MIN_SCORE);
-  const items = all.filter((i) => i.daysLeft === null || i.daysLeft >= 0).sort(byDeadline);
-  const missed = all.filter((i) => i.daysLeft !== null && i.daysLeft < 0).sort(byDeadline);
-  items.forEach((item, i) => (item.rank = i + 1));
+/**
+ * @param {object[]} opportunities matched opportunities (fit match | conditional | unclear)
+ * @param {{ today: string, headline?: object, notes?: string[], kitIds?: Map, now?: Date,
+ *   ruleEvidence?: object, notApplicable?: {title, reason, sourceUrl}[],
+ *   sources?: {checked: number, failed: number, lastChecked: string|null, list?: object[]} }} opts
+ */
+export function buildPlan(opportunities, { today, headline = null, notes = [], kitIds = new Map(), now = new Date(), ruleEvidence = {}, notApplicable = [], sources = null }) {
+  const all = opportunities.map((o) => toItem(o, today, kitIds));
+  const items = all.filter((i) => i.daysLeft === null || i.daysLeft >= 0).sort(byRank);
+  const missed = all.filter((i) => i.daysLeft !== null && i.daysLeft < 0).sort(byRank);
+  items.forEach((item, i) => {
+    item.rank = i + 1;
+    item.rankWhy = rankWhy(item, item.rank, items[i - 1]);
+  });
 
   const counts = { scholarship: 0, hackathon: 0, event: 0 };
   for (const i of items) counts[i.kind]++;
@@ -89,8 +121,10 @@ export function buildPlan(opportunities, { today, headline = null, notes = [], k
     headline: headline && { ...headline, daysLeft: daysBetween(today, headline.date) },
     items,
     missed,
+    notApplicable,
     counts,
     notes,
-    conflicts: findConflicts(items),
+    conflicts: findConflicts(items, ruleEvidence),
+    sources,
   };
 }

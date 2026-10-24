@@ -92,3 +92,22 @@ test('mock replay reproduces the recorded order with replay: true', async () => 
   assert.deepEqual(mock.history.map((e) => e.payload), live.history.map((e) => e.payload));
   assert.ok(mock.history.every((e) => e.replay === true));
 });
+
+test('sample student plan: no Shahu or Panjabrao, MahaDBT undated, conflicts flagged', async () => {
+  const plan = (await fakeRun()).find((e) => e.kind === 'plan.ready').payload;
+  assert.ok(!plan.items.some((i) => /Shahu|Panjabrao/.test(i.title)), 'EBC/EWS and General/SEBC schemes are not for an OBC student');
+  for (const i of plan.items.filter((i) => i.source === 'mahadbt')) assert.equal(i.deadline, null, 'MahaDBT publishes no deadline');
+  const ids = plan.conflicts.map((c) => c.id).sort();
+  assert.deepEqual(ids, ['csss-vs-state-fee-reimbursement', 'nsp-one-merit-scheme']);
+  for (const c of plan.conflicts) {
+    assert.match(c.sourceUrl, /^https:\/\//);
+    assert.ok(c.ids.every((id) => plan.items.some((i) => i.opportunityId === id)));
+  }
+});
+
+test('the fake run shows failures honestly: MahaDBT 2.0 fails after one retry', async () => {
+  const errors = (await fakeRun()).filter((e) => e.kind === 'agent.error');
+  const m2 = errors.filter((e) => e.payload.target === 'https://mahadbt2.maharashtra.gov.in/');
+  assert.deepEqual(m2.map((e) => e.payload.retrying), [true, false]);
+  assert.ok(errors.every((e) => e.payload.code && e.payload.message));
+});

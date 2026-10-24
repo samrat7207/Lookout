@@ -18,7 +18,8 @@ A Computer Engineering student also has a second stream of deadlines: hackathons
 
 **Demo persona:** male, B.Tech Computer Engineering, **2nd year**, OBC, Maharashtra. The UI labels this persona **"sample student"**, with no invented name.
 - On NSP he matches PM YASASVI Top Class Education in College (OBC, EBC, DNT) and PM-USP CSSS (merit, renewal). AICTE Swanath (Technical Degree) is listed as conditional, because it is for orphans and wards of armed forces martyrs. AICTE Pragati (girls) is **excluded** for this persona.
-- On MahaDBT he matches the OBC schemes: Post Matric Scholarship to OBC Students, Tuition Fees and Examination Fees to OBC Students, Rajarshri Chhatrapati Shahu Maharaj Fee Reimbursement, and Dr Panjabrao Deshmukh Hostel Maintenance Allowance.
+- On MahaDBT he conditionally matches two OBC schemes: Post Matric Scholarship to OBC Students and Tuition Fees and Examination Fees to OBC Students (income, CAP admission and attendance are not in the profile). The Rajarshri Chhatrapati Shahu Maharaj Fee Reimbursement (meant for EBC/EWS) and the Dr Panjabrao Deshmukh Hostel Maintenance Allowance (General and SEBC only) are **not** for him.
+- The plan warns about two conflicts: PM YASASVI (college) vs PM-USP CSSS (NSP allows one merit scheme), and CSSS vs a state fee reimbursement or freeship.
 - On private listings he matches open B.Tech or UG schemes such as HDFC Parivartan ECSS (deadline 31-Oct-2026 on Buddy4Study).
 - On hackathon boards he matches online events, and in-person events in India, that are open to undergraduate students.
 

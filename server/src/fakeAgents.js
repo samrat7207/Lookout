@@ -105,10 +105,22 @@ export async function runFake(run, opts = {}) {
     notes.push('MahaDBT: AY 2026-27 applications only via MahaDBT 2.0 (mahadbt2.maharashtra.gov.in). Deadlines are not published on scheme pages.');
     a.found(recon.MAHADBT_NOTE);
     await sleep(700);
-    a.progress('About 45 Post Matric schemes listed; 4 fit OBC + Maharashtra', 'fetch');
+    a.work('fetch', recon.MAHADBT2_FAILURE.url, 'Fetch MahaDBT 2.0 (for deadlines)');
+    await sleep(2500);
+    a.error({ tool: 'fetch', code: recon.MAHADBT2_FAILURE.code, message: recon.MAHADBT2_FAILURE.message, target: recon.MAHADBT2_FAILURE.url, retrying: true });
+    await sleep(1500);
+    a.work('fetch', recon.MAHADBT2_FAILURE.url, 'Retry MahaDBT 2.0');
+    await sleep(2500);
+    a.error({ tool: 'fetch', code: recon.MAHADBT2_FAILURE.code, message: `${recon.MAHADBT2_FAILURE.message}. Gave up; deadlines stay "not published".`, target: recon.MAHADBT2_FAILURE.url, retrying: false });
+    await sleep(700);
+    a.progress(`About 45 Post Matric schemes listed on MahaDBT 1.0; reading 4 that mention OBC or professional courses`, 'fetch');
     await sleep(500);
-    a.work('fetch', '4 SchemeData pages', 'Fetch 4 scheme pages');
+    a.work('fetch', '4 SchemeData pages on mahadbt.maharashtra.gov.in', 'Fetch 4 scheme pages');
     await sleep(2800);
+    for (const s of recon.MAHADBT_SKIPPED) {
+      await sleep(500);
+      a.progress(`Skipped "${s.title.slice(0, 44)}…": ${s.reason}`, 'fetch');
+    }
     for (const o of recon.mahadbt) {
       await sleep(700);
       a.found(o);
@@ -126,8 +138,10 @@ export async function runFake(run, opts = {}) {
     await sleep(1500);
     a.work('fetch', '2 Buddy4Study detail pages', 'Fetch scholarship pages');
     await sleep(4000);
-    a.error({ tool: 'fetch', code: 'slow', message: 'Buddy4Study page is slow, still waiting', retrying: true });
-    await sleep(3000);
+    a.error({ tool: 'fetch', code: 'slow', message: 'Buddy4Study page is slow, still waiting', target: 'https://www.buddy4study.com/', retrying: true });
+    await sleep(1500);
+    a.work('fetch', '2 Buddy4Study detail pages', 'Retry Buddy4Study pages');
+    await sleep(2000);
     a.progress(`Skipped "${recon.FOUNDATIONS_SKIPPED.title.slice(0, 40)}…": ${recon.FOUNDATIONS_SKIPPED.reason}`, 'fetch');
     for (const o of recon.foundations) {
       await sleep(800);

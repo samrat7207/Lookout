@@ -12,6 +12,10 @@ A low-poly 3D city where each TinyFish web agent is a little character and each 
 
 Built in 6 stages ([docs/MILESTONES.md](docs/MILESTONES.md)). **Stage 1 (low-poly city, `web/`) is in progress.** The server pieces done so far are the event bus, the SSE stream with `Last-Event-ID`, the JSONL recorder, the scripted fake run, mock replay, the NSP parser, the TinyFish client skeleton, the plan sorter and the kit builder.
 
+## Team
+
+Samrat Kunte (lead: city, backend, integration), Aman Kumar (Application Kit data, eligibility rules), Aniket Gupta (opportunities research, pitch and demo). How we work (branches, pull requests, everyone commits under their own name): [team/README.md](team/README.md). Who did what: [CONTRIBUTORS.md](CONTRIBUTORS.md).
+
 ## Docs
 
 | Doc | What it covers |

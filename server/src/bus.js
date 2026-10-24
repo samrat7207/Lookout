@@ -24,15 +24,19 @@ export function createRun({ runId = newRunId(), replay = false } = {}) {
     history,
     get closed() { return closed; },
 
-    /** @param {string} kind @param {{agentId?: string, building?: string, payload?: object}} [fields] */
-    emit(kind, { agentId, building, payload = {} } = {}) {
+    /**
+     * @param {string} kind
+     * @param {{agentId?: string, building?: string, payload?: object, t?: number}} [fields]
+     *   t overrides the run clock (replays use recording time, so pauses and speed don't skew it)
+     */
+    emit(kind, { agentId, building, payload = {}, t } = {}) {
       if (closed) throw new Error(`run ${runId} is closed`);
       const evt = {
         v: SCHEMA_VERSION,
         seq: ++seq,
         runId,
         ts: new Date().toISOString(),
-        t: Date.now() - startedAt,
+        t: t ?? Date.now() - startedAt,
         kind,
         ...(agentId && { agentId }),
         ...(building && { building }),

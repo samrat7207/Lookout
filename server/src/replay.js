@@ -36,9 +36,11 @@ export function createControl({ speed = 1, paused = false } = {}) {
 export async function replayRecording(run, file, { speed = 1, maxGapMs = MAX_GAP_MS, control = createControl({ speed }) } = {}) {
   const events = await readRecording(file);
   let prevT = events[0]?.t ?? 0;
+  let clock = prevT; // recording time played so far (gaps capped)
   for (const evt of events) {
     // `remaining` is recording time; it drains at control.speed and not at all while paused
     let remaining = Math.min(Math.max(evt.t - prevT, 0), maxGapMs);
+    clock += remaining;
     prevT = evt.t;
     while (remaining > 0 || control.paused) {
       if (control.paused) {
@@ -49,7 +51,7 @@ export async function replayRecording(run, file, { speed = 1, maxGapMs = MAX_GAP
       await sleep(step / control.speed);
       remaining -= step;
     }
-    run.emit(evt.kind, { agentId: evt.agentId, building: evt.building, payload: evt.payload });
+    run.emit(evt.kind, { agentId: evt.agentId, building: evt.building, payload: evt.payload, t: clock });
   }
   return events.length;
 }

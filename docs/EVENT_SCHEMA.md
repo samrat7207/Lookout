@@ -12,7 +12,7 @@ v2 changes from v1: **Finding** is replaced by **Opportunity** (it covers schola
   "seq": 17,                       // per-run, starts at 1, strictly increasing
   "runId": "run_2026-10-24T10-15-03_ab12",
   "ts": "2026-10-24T10:15:09.412Z",
-  "t": 6412,                       // ms since run.started (used by replay timing)
+  "t": 6412,                       // ms since run.started (used by replay timing); replays stamp recording time, so pauses and speed don't change it
   "kind": "agent.found",           // event kind (not the same thing as Opportunity.kind)
   "agentId": "nsp-scout",          // optional for run-level events
   "building": "nsp",               // see IDs

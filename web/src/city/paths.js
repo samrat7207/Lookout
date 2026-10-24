@@ -64,7 +64,7 @@ const TOWNHALL_EXITS = [
   { walk: [5.2, 1.2], road: [7, 1.2] },
 ];
 const TOWNHALL_Z = 1.2;
-const TOWNHALL_SLOTS = [-1.9, 1.9, -2.8, 2.8, -3.6, 3.6, -4.4, 4.4];
+const TOWNHALL_SLOTS = [-2.0, 2.0, -3.9, 3.9, -3.0, 3.0, -4.6, 4.6];
 export const MAYOR_SPOT = [0, 0.85];
 
 export const AGENT_Y = LOT_TOP;

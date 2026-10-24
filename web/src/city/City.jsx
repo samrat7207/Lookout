@@ -6,6 +6,7 @@ import { buildCity } from './buildCity.js';
 import { InstancedBatch } from './InstancedBatch.jsx';
 import { LandmarkLabels, Landmarks } from './Landmarks.jsx';
 import { Beacon } from './Beacon.jsx';
+import { Citizens } from './Citizens.jsx';
 
 const PAN_LIMIT = 16;
 
@@ -136,6 +137,7 @@ export default function City() {
       >
         <Lights />
         <InstancedBatch batch={batch} />
+        <Citizens />
         <Beacon />
         <TileShadow />
         <Landmarks hover={hover} setHover={setHover} />

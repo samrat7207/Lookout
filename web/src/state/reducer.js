@@ -93,6 +93,7 @@ export function describe(evt) {
     case 'watchtower.change': return `Date changed: ${p.changes?.length ?? 0} schemes`;
     case 'run.complete': return `Run complete: ${p.findings ?? 0} findings, ${p.errors ?? 0} errors`;
     case 'run.failed': return `Run failed: ${p.message ?? ''}`;
+    case 'verify.result': return `${VERIFY_LABEL[p.status] ?? p.status}: ${p.title ?? p.opportunityId}${p.status === 'verified' ? '' : `. ${p.reason}`}`;
     case 'cache.hit': return `Cache hit: ${p.url ?? p.call} (fetched ${Math.round((p.ageMs ?? 0) / 60000)} min ago)`;
     case 'cache.miss': return `Cache miss: ${p.url ?? p.call}, fetching live`;
     case 'rate.limited': return `Backing off ${Math.round((p.retryInMs ?? 0) / 100) / 10} s (${p.reason}), attempt ${p.attempt}`;
@@ -102,10 +103,13 @@ export function describe(evt) {
   }
 }
 
+export const VERIFY_LABEL = { verified: 'Verified', changed: 'Changed since ranking', unverified: 'Could not verify' };
+
 /** Agents that help but do not visit a source; they are not counted in "sources done". */
 export const HELPERS = new Set(['mayor', 'gatekeeper', 'verifier', 'profiler']);
 
-const LEVEL = { 'agent.error': 'error', 'run.failed': 'error', 'agent.found': 'good', 'plan.ready': 'good', 'run.complete': 'good' };
+const LEVEL = {
+  'blocked': 'error', 'agent.error': 'error', 'run.failed': 'error', 'agent.found': 'good', 'plan.ready': 'good', 'run.complete': 'good' };
 
 /** Sources done / total: every agent except the mayor (Town Hall) is a source visit. */
 export function sourceCounts(state) {
@@ -288,6 +292,11 @@ export function reduce(state, evt) {
       s.agents = agents;
       break;
     }
+
+    case 'verify.result':
+      s.verification = { ...s.verification, [p.opportunityId]: { ...p, building: evt.building ?? null } };
+      agentPatch({ status: 'working' });
+      break;
 
     case 'cache.hit':
     case 'cache.miss':

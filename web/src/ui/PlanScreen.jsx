@@ -59,8 +59,27 @@ function Conflicts({ conflicts }) {
   );
 }
 
-function Row({ item, kit, onKit }) {
+const VERIFY = {
+  verified: { label: '✓ Verified', cls: 'verified' },
+  changed: { label: '⚠ Changed', cls: 'changed' },
+  unverified: { label: '? Could not verify', cls: 'unverified' },
+};
+
+/** The Verifier's badge; anything but "verified" also shows its reason. */
+export function VerifyBadge({ v, withReason = false }) {
+  if (!v) return <span className="chip chip--unverified" title="The Verifier has not reported on this item">not re-checked</span>;
+  const m = VERIFY[v.status] ?? VERIFY.unverified;
+  return (
+    <>
+      <span className={`chip chip--${m.cls}`} title={v.reason}>{m.label}</span>
+      {withReason && v.status !== 'verified' && <span className={`plan__vreason plan__vreason--${m.cls}`}>{v.reason}</span>}
+    </>
+  );
+}
+
+function Row({ item, kit, onKit, verification }) {
   const fit = FIT[item.fit] ?? FIT.unclear;
+  const v = item.verification ?? verification;
   return (
     <li className="plan__row">
       <div className="plan__rank">#{item.rank}</div>
@@ -68,6 +87,7 @@ function Row({ item, kit, onKit }) {
         <div className="plan__top">
           <span className={`chip chip--${fit.cls}`}>{fit.label}</span>
           {item.needsVerification && <span className="chip chip--verify">needs verification</span>}
+          <VerifyBadge v={v} withReason />
           <span className="plan__kind">{item.kind === 'scholarship' ? '🎓' : item.kind === 'hackathon' ? '💻' : '📅'} {item.source}</span>
         </div>
         <h4>{item.title}</h4>
@@ -79,7 +99,7 @@ function Row({ item, kit, onKit }) {
         <p className="plan__rankwhy"><b>Why this ranking:</b> {item.rankWhy}</p>
         <div className="plan__links">
           <a href={item.sourceUrl} target="_blank" rel="noreferrer noopener">Source: {host(item.sourceUrl)}</a>
-          <span className="plan__checked">Last checked {fmtChecked(item.checkedAt)}</span>
+          <span className="plan__checked">Last checked {fmtChecked(item.checkedAt)}{v?.checkedAt && v.status !== 'unverified' ? ` · re-checked ${fmtChecked(v.checkedAt)}` : ''}</span>
           {kit && (
             <button type="button" className="btn btn--primary" onClick={() => onKit(kit)}>
               Application Kit
@@ -168,7 +188,7 @@ export function PlanScreen({ state, onClose }) {
         <Conflicts conflicts={plan.conflicts} />
         <ol className="plan__list">
           {plan.items.map((item) => (
-            <Row key={item.opportunityId} item={item} kit={item.kitId ? state.kitsById[item.kitId] : null} onKit={setKit} />
+            <Row key={item.opportunityId} item={item} kit={item.kitId ? state.kitsById[item.kitId] : null} onKit={setKit} verification={state.verification[item.opportunityId]} />
           ))}
         </ol>
         {plan.missed?.length > 0 && (

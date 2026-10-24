@@ -462,3 +462,12 @@ body {
   pointer-events: none;
 }
 .brand__toggle { margin-top: 8px; pointer-events: auto; }
+
+/* Verifier badges */
+.chip--verified { background: #d8f3e4; color: #135c3a; border: 1px solid #7cc8a0; }
+.chip--changed { background: #b3122a; color: #fff; }
+.chip--unverified { background: #eceff3; color: #3d4a5a; border: 1px solid #c3cbd6; }
+.plan__top .chip + .chip { margin-left: 0; }
+.plan__vreason { flex-basis: 100%; font-size: 14px; }
+.plan__vreason--changed { color: #b3122a; font-weight: 700; }
+.plan__vreason--unverified { color: #5b6776; }

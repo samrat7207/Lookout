@@ -17,6 +17,7 @@ import { assessByName, assessPageText } from './rank/rules.js';
 import { CONFLICT_RULES, findRuleEvidence } from './rank/conflicts.js';
 import { buildPlan, istToday } from './rank/ranker.js';
 import { buildKit } from './kit/buildKit.js';
+import { verifyItems } from './verify/verifier.js';
 import * as recon from './fake/reconData.js';
 
 const NSP_HOME = 'https://scholarships.gov.in/';
@@ -47,7 +48,11 @@ const AGENTS = {
   'foundations-scout': { name: 'Fauzi', role: 'Foundations Researcher', building: 'foundations' },
   mayor: { name: 'Mayor Tara', role: 'Orchestrator', building: 'townhall' },
   gatekeeper: { name: 'Gita', role: 'Gatekeeper', building: 'townhall' },
+  verifier: { name: 'Vera', role: 'Verifier', building: 'townhall' },
 };
+
+// where each source's items live in the city (for verify.result events)
+export const SOURCE_BUILDING = { nsp: 'nsp', mahadbt: 'mahadbt', buddy4study: 'foundations', vidyasaarathi: 'foundations', devpost: 'opportunities', hackerearth: 'opportunities', unstop: 'opportunities' };
 
 /**
  * @param {ReturnType<import('./bus.js').createRun>} run
@@ -323,7 +328,8 @@ export async function runLive(run, opts = {}) {
     const cached = ledger.filter((l) => l.cached).length;
     return { checked: ledger.length, failed, cached, lastChecked: times.at(-1) ?? null, list: ledger, notUsed: SOURCES_NOT_USED, gatekeeper: gk.stats() };
   };
-  const planNow = (extra = {}) => buildPlan(found, { today, headline, notes, notApplicable, ruleEvidence, sources: sources(), ...extra });
+  let verification = new Map();
+  const planNow = (extra = {}) => buildPlan(found, { today, headline, notes, notApplicable, ruleEvidence, sources: sources(), verification, ...extra });
   const mayorPlan = (kind, extra) => run.emit(kind, { agentId: 'mayor', building: 'townhall', payload: planNow(extra) });
 
   await Promise.all([
@@ -331,6 +337,20 @@ export async function runLive(run, opts = {}) {
     mahadbtScout().then(() => mayorPlan('plan.updated')),
     foundationsScout().then(() => mayorPlan('plan.updated')),
   ]);
+
+  // Verifier: re-fetch every plan item's source (cache bypassed) and check name + deadline
+  {
+    const emitV = (kind, payload, building = 'townhall') => run.emit(kind, { agentId: 'verifier', building, payload });
+    const items = planNow().items;
+    const t0 = Date.now();
+    emitV('agent.working', { tool: 'fetch', target: `${new Set(items.map((i) => i.sourceUrl)).size} source pages`, label: `Re-check ${items.length} plan items` });
+    verification = await verifyItems(items, gk, {
+      onResult: (item, r) => emitV('verify.result', { opportunityId: item.opportunityId, title: item.title, ...r }, SOURCE_BUILDING[item.source] ?? 'townhall'),
+    });
+    const tally = { verified: 0, changed: 0, unverified: 0 };
+    for (const r of verification.values()) tally[r.status]++;
+    emitV('agent.done', { findings: 0, durationMs: Date.now() - t0, ...tally });
+  }
 
   const kitIds = new Map();
   const planned = new Set(planNow().items.map((i) => i.opportunityId));

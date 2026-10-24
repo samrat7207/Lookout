@@ -1,4 +1,5 @@
 import { STATUS, TOOL_ICON, fmtTime, landmark, placeName, roleColor } from './agentStyle.js';
+import { VerifyBadge } from './PlanScreen.jsx';
 
 function Status({ status, retrying }) {
   const st = STATUS[status] ?? STATUS.idle;
@@ -35,6 +36,7 @@ function BuildingCard({ id, state }) {
   const b = state.buildings[id];
   const agent = b?.agentId ? state.agents[b.agentId] : null;
   const sources = b ? Object.entries(b.sources) : [];
+  const checks = Object.values(state.verification).filter((v) => v.building === id);
   return (
     <>
       <header className="card__head">
@@ -56,6 +58,22 @@ function BuildingCard({ id, state }) {
       <LastEvent ev={b?.lastEvent} />
       <h3>URL</h3>
       <Url url={b?.url} />
+      {checks.length > 0 && (
+        <>
+          <h3>Verifier re-check</h3>
+          <ul className="card__sources">
+            {checks.map((v) => (
+              <li key={v.opportunityId} className="src">
+                <span />
+                <div>
+                  <VerifyBadge v={v} /> {v.title}
+                  {v.status !== 'verified' && <div className="src__msg">{v.reason}</div>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       {sources.length > 0 && (
         <>
           <h3>Calls at this source</h3>

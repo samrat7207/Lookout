@@ -108,6 +108,9 @@ test('live run (stub client): real-shaped plan with sources, last-checked times,
   const fee = plan.conflicts.find((c) => c.id === 'csss-vs-state-fee-reimbursement');
   assert.equal(fee.officialRule, undefined, 'no fetched page states it, so no hard rule');
   assert.ok(run.history.some((e) => e.kind === 'kit.ready'));
+  // the Verifier re-checked every item; none was dropped
+  assert.ok(plan.items.every((i) => i.verification && ['verified', 'changed', 'unverified'].includes(i.verification.status)));
+  assert.equal(run.history.filter((e) => e.kind === 'verify.result').length, plan.items.length);
 });
 
 test('live run with a bad key throws before emitting anything', async () => {

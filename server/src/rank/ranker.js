@@ -64,7 +64,7 @@ function rankWhy(item, rank, prev) {
   return `#${rank}: ${when}${tie}.`;
 }
 
-function toItem(opp, today, kitIds) {
+function toItem(opp, today, kitIds, verification) {
   const daysLeft = opp.deadline ? daysBetween(today, opp.deadline) : null;
   return {
     opportunityId: opp.id,
@@ -83,6 +83,7 @@ function toItem(opp, today, kitIds) {
     needsVerification: opp.needsVerification ?? false,
     action: ACTIONS[opp.source] ?? 'Open the source page',
     ...(kitIds.has(opp.id) && { kitId: kitIds.get(opp.id) }),
+    verification: verification.get(opp.id) ?? null, // set by the Verifier; does not affect rank
   };
 }
 
@@ -103,8 +104,8 @@ export function byRank(a, b) {
  *   ruleEvidence?: object, notApplicable?: {title, reason, sourceUrl}[],
  *   sources?: {checked: number, failed: number, lastChecked: string|null, list?: object[]} }} opts
  */
-export function buildPlan(opportunities, { today, headline = null, notes = [], kitIds = new Map(), now = new Date(), ruleEvidence = {}, notApplicable = [], sources = null }) {
-  const all = opportunities.map((o) => toItem(o, today, kitIds));
+export function buildPlan(opportunities, { today, headline = null, notes = [], kitIds = new Map(), now = new Date(), ruleEvidence = {}, notApplicable = [], sources = null, verification = new Map() }) {
+  const all = opportunities.map((o) => toItem(o, today, kitIds, verification));
   const items = all.filter((i) => i.daysLeft === null || i.daysLeft >= 0).sort(byRank);
   const missed = all.filter((i) => i.daysLeft !== null && i.daysLeft < 0).sort(byRank);
   items.forEach((item, i) => {

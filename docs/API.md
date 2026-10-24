@@ -123,6 +123,15 @@ Errors: `503` without a key; `400` without a usable runId or items; `502` if Tin
 
 `tinyfishKeyPresent` is a yes or no only. The key never leaves `server/src/tinyfish/client.js`.
 
+## History and re-judge
+
+| Route | Purpose |
+|---|---|
+| `GET /api/history` | The last 20 completed runs: `{ runs: [{ id, savedAt, mode, replay, recording, fallbackReason, persona, counts, sources }] }` |
+| `GET /api/history/:id` | One saved run: the summary plus `plan` and `kits` |
+| `GET /api/history/compare?a=<id>&b=<id>` | `{ older, newer, diff: { added, removed, newlyClosed, deadlineMoved, fitChanged, verificationChanged, unchanged } }` |
+| `POST /api/rejudge` | Body `{ runId \| historyId, profile: { gender?, category?, familyIncome?, capAdmission?, domicileProof? } }`. Re-applies the Judge and the Ranker to the same fetched data and returns `{ plan, profile }`; `plan.rejudged` lists what moved. Nothing is re-fetched. |
+
 ## Other routes
 
 | Route | Purpose |

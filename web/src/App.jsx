@@ -6,8 +6,11 @@ import { EventLog } from './ui/EventLog.jsx';
 import { SideCard } from './ui/SideCard.jsx';
 import { PlanScreen } from './ui/PlanScreen.jsx';
 import { SystemView } from './ui/SystemView.jsx';
+import { HistoryDrawer } from './ui/HistoryDrawer.jsx';
+import { Guide } from './ui/Guide.jsx';
 
 const TECH = new URLSearchParams(window.location.search).has('tech');
+const GUIDED = new URLSearchParams(window.location.search).has('guided');
 
 // ?demo plays a run on load and opens the plan when it finishes (rehearsal).
 // ?demo uses replay at 2x; ?demo=live or ?demo=mock pick the mode.
@@ -23,10 +26,45 @@ export default function App() {
   const [selected, setSelected] = useState(null);
   const [mode, setMode] = useState(DEMO?.mode ?? null);
   const [planOpen, setPlanOpen] = useState(false);
-  const [duskCycle, setDuskCycle] = useState(false);
+  const [theme, setTheme] = useState('day'); // day | dusk | cycle
   const [sysOpen, setSysOpen] = useState(TECH);
   const [recheck, setRecheck] = useState(null); // Watchtower result for the current plan
   useEffect(() => setRecheck(null), [state.runId]);
+  const [histOpen, setHistOpen] = useState(false);
+  const [guided, setGuided] = useState(GUIDED);
+  // a plan shown instead of the live one: a saved run from the history, or a re-judged plan
+  const [view, setView] = useState(null);
+  const [rerunState, setRerunState] = useState(null);
+  useEffect(() => setView(null), [state.runId]);
+
+  const openHistory = (entry) => {
+    const verification = Object.fromEntries(entry.plan.items.filter((i) => i.verification).map((i) => [i.opportunityId, i.verification]));
+    setView({
+      plan: entry.plan,
+      kitsById: Object.fromEntries((entry.kits ?? []).map((k) => [k.id, k])),
+      verification,
+      label: `Saved ${entry.mode} run from ${new Date(entry.savedAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}${entry.fallbackReason ? ` (fallback: ${entry.fallbackReason})` : ''}`,
+      mode: entry.mode,
+      historical: true,
+      historyId: entry.id,
+    });
+    setHistOpen(false);
+    setPlanOpen(true);
+  };
+
+  const rerun = async (profile) => {
+    setRerunState('busy');
+    try {
+      const body = view?.historyId ? { historyId: view.historyId, profile } : { runId: state.runId, profile };
+      const res = await fetch('/api/rejudge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      setView((v) => ({ ...(v ?? { kitsById: state.kitsById, verification: state.verification, mode: state.runMode?.mode }), plan: json.plan, label: v?.label }));
+      setRerunState(null);
+    } catch (err) {
+      setRerunState(`error: re-run failed (${err.message})`);
+    }
+  };
 
   // open the plan once per run when it finishes
   const openedFor = useRef(null);
@@ -54,15 +92,20 @@ export default function App() {
   return (
     <main className="app">
       <div className="sky" aria-hidden />
-      <City state={state} playback={playback} selected={selected} onSelect={setSelected} duskCycle={duskCycle} />
+      <City state={state} playback={playback} selected={selected} onSelect={setSelected} theme={theme} />
       <header className="brand">
         <h1>Lookout</h1>
         <p>Scholarship Season · sample student: B.Tech CE, 2nd year, OBC, Maharashtra</p>
-        <button type="button" className="btn brand__toggle" aria-pressed={duskCycle} onClick={() => setDuskCycle((v) => !v)}>
-          {duskCycle ? '🌇 Day-to-dusk cycle: on' : '☀ Daytime (start dusk cycle)'}
-        </button>
+        <div className="seg brand__toggle" role="group" aria-label="Theme">
+          {[['day', '☀ Day'], ['dusk', '🌇 Dusk'], ['cycle', '↻ Cycle']].map(([v, l]) => (
+            <button key={v} type="button" aria-pressed={theme === v} className={`seg__btn${theme === v ? ' seg__btn--on' : ''}`} onClick={() => setTheme(v)}>{l}</button>
+          ))}
+        </div>
         <button type="button" className="btn brand__toggle" aria-pressed={sysOpen} onClick={() => setSysOpen((v) => !v)}>
           ⚙ System view
+        </button>
+        <button type="button" className="btn brand__toggle" aria-pressed={histOpen} onClick={() => setHistOpen((v) => !v)}>
+          🕘 History
         </button>
       </header>
       <RunBar
@@ -74,12 +117,27 @@ export default function App() {
         health={health}
         mode={mode ?? 'replay'}
         setMode={setMode}
-        onViewPlan={() => setPlanOpen(true)}
+        onViewPlan={() => {
+          setView(null);
+          setPlanOpen(true);
+        }}
       />
       <EventLog state={state} onSelect={setSelected} />
       <SideCard selected={selected} state={state} onClose={() => setSelected(null)} />
       {sysOpen && <SystemView state={state} recheck={recheck} onClose={() => setSysOpen(false)} />}
-      {planOpen && <PlanScreen state={state} onClose={() => setPlanOpen(false)} recheck={recheck} setRecheck={setRecheck} />}
+      {histOpen && <HistoryDrawer onClose={() => setHistOpen(false)} onOpen={openHistory} />}
+      {planOpen && (
+        <PlanScreen
+          state={state}
+          view={view}
+          onClose={() => setPlanOpen(false)}
+          recheck={view?.historical ? null : recheck}
+          setRecheck={setRecheck}
+          onRerun={rerun}
+          rerunState={rerunState}
+        />
+      )}
+      {guided && <Guide state={state} onSkip={() => setGuided(false)} />}
       <p className="safety">Lookout never logs in, never submits forms, and never asks for, enters or stores passwords, OTPs or Aadhaar numbers.</p>
       <p className="hint">Drag to orbit · scroll to zoom · right-drag to pan · click a building or character</p>
     </main>

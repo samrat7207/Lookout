@@ -81,6 +81,9 @@ function toItem(opp, today, kitIds, verification) {
     sourceUrl: opp.sourceUrl,
     eventUrl: opp.eventUrl ?? null,
     checkedAt: opp.checkedAt ?? null,
+    // where the date came from: parsed (page text) | snippet (search result) | none; used by the .ics export
+    dateSource: opp.deadline ? opp.dateSource ?? 'parsed' : 'none',
+    evidence: opp.evidence ?? null,
     needsVerification: opp.needsVerification ?? false,
     action: ACTIONS[opp.source] ?? 'Open the source page',
     ...(kitIds.has(opp.id) && { kitId: kitIds.get(opp.id) }),

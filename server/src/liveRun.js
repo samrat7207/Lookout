@@ -215,7 +215,8 @@ export async function runLive(run, opts = {}) {
       const kept = [];
       for (const s of schemes) {
         const fit = assessByName(s.name, criteria);
-        if (fit.fit === 'not_applicable') notApplicable.push({ title: s.name, reason: fit.reason, sourceUrl: NSP_ALL_SCHOLARSHIPS_URL, checkedAt: list.checkedAt });
+        // keep the fetched fields, so a re-judge with an edited profile can bring it back without guessing
+        if (fit.fit === 'not_applicable') notApplicable.push({ title: s.name, reason: fit.reason, sourceUrl: NSP_ALL_SCHOLARSHIPS_URL, checkedAt: list.checkedAt, kind: 'scholarship', source: 'nsp', opportunityId: `nsp:${s.slug}`, deadline: s.applyTill, deadlineLabel: 'Student application closes', dateSource: s.applyTill ? 'parsed' : 'none', evidence: s.evidence });
         else kept.push([s, fit]);
       }
       a.progress(`Parsed ${schemes.length} schemes from the live page; ${kept.length} may fit, ${schemes.length - kept.length} do not`, 'fetch');

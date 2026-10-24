@@ -66,6 +66,14 @@ Watchtower: on "Re-check now" only ─▶ Gatekeeper ─▶ re-read dates ─▶
 - Conflict warnings never state a rule unless a fetched page says it. When one does, the warning quotes and links it.
 - The ranking is explainable: deadline, then fit, and nothing else. Every row has a "Why this ranking" line.
 
+## Features
+- **City:** a live view of the event stream: agents walk, work, fail and retry; buildings show status; a Day / Dusk / Cycle theme.
+- **Plan:** one list ranked by deadline, then fit, with "Why this ranking", Verifier and Watchtower badges, a deadline timeline, filters and search, conflicts, read-only Application Kits, "Not applicable" reasons, and a sources footer.
+- **Exports:** a printable plan (print to PDF) and an `.ics` file with only the deadlines read from fetched text.
+- **Profile:** the Profiler shows the unknowns. Editing them and pressing Re-run re-applies the Judge (official income limits, CAP and domicile rules) and the Ranker to the same fetched data (`POST /api/rejudge`); nothing is re-fetched.
+- **History:** the last 20 completed runs are saved on the server; open one, or compare two (added, removed, newly closed, deadline moved, fit or verifier changes).
+- **Observability:** the System view (`?tech`), the event log, and guided captions (`?guided`) for presenting.
+
 ## Known limits
 - No Vidyasaarathi, Unstop, Hack2skill, Devfolio or MLH in the live run (reasons are listed in the plan).
 - MahaDBT 2.0 is unreachable through the proxy, so MahaDBT deadlines are "not published".

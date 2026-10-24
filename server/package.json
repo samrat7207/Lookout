@@ -8,7 +8,7 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env src/index.js",
     "dev": "node --watch --env-file-if-exists=.env src/index.js",
-    "test": "node --test",
+    "test": "node --env-file=test/test.env --test",
     "capture": "node --env-file-if-exists=.env scripts/capture.js",
     "capture:fixtures": "node --env-file-if-exists=.env scripts/captureFixtures.js",
     "fake:record": "node scripts/recordFake.js"

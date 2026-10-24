@@ -9,6 +9,7 @@ dist/
 
 # server cache
 server/.cache/
+server/.data/
 
 # recordings: keep only the committed golden and fake runs
 recordings/*

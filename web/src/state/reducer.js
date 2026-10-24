@@ -106,6 +106,15 @@ export function describe(evt) {
 
 export const VERIFY_LABEL = { verified: 'Verified', changed: 'Changed since ranking', unverified: 'Could not verify' };
 
+/** The few payload fields the guided captions need (keeps the log small). */
+function brief(kind, p) {
+  const keep = ['mode', 'fallbackReason', 'to', 'tool', 'code', 'retrying', 'host', 'reason', 'status', 'title', 'findings', 'errors'];
+  const out = Object.fromEntries(keep.filter((k) => p[k] !== undefined && typeof p[k] !== 'object').map((k) => [k, p[k]]));
+  if (Array.isArray(p.items)) out.itemCount = p.items.length;
+  if (Array.isArray(p.unknown)) out.unknownCount = p.unknown.length;
+  return out;
+}
+
 /** Agents that help but do not visit a source; they are not counted in "sources done". */
 export const HELPERS = new Set(['mayor', 'gatekeeper', 'verifier', 'profiler']);
 
@@ -333,7 +342,7 @@ export function reduce(state, evt) {
   if (evt.kind === 'cache.miss') s.tools = { ...s.tools, ok: s.tools.ok + 1 };
 
   if (known) {
-    s.log = [...s.log.slice(-(LOG_LIMIT - 1)), { seq: evt.seq, t: evt.t ?? 0, kind: evt.kind, agentId: evt.agentId ?? null, building: evt.building ?? null, text: last.text, level: LEVEL[evt.kind] ?? (evt.kind === 'agent.error' ? 'error' : 'info') }];
+    s.log = [...s.log.slice(-(LOG_LIMIT - 1)), { seq: evt.seq, t: evt.t ?? 0, kind: evt.kind, agentId: evt.agentId ?? null, building: evt.building ?? null, text: last.text, payload: brief(evt.kind, p), level: LEVEL[evt.kind] ?? (evt.kind === 'agent.error' ? 'error' : 'info') }];
   }
   return s;
 }

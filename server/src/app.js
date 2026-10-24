@@ -13,6 +13,8 @@ import { CACHE_DIR, LiveUnavailableError, runLive } from './liveRun.js';
 import { createGatekeeper } from './tinyfish/gatekeeper.js';
 import { recheck } from './watch/watchtower.js';
 import { istToday } from './rank/ranker.js';
+import { createHistory, diffPlans, entryFromRun, HISTORY_FILE, summarize } from './history/history.js';
+import { rejudgePlan } from './rank/rejudge.js';
 
 // Modes (MODE in server/.env sets the default):
 //   live    real TinyFish Search + Fetch; recorded to recordings/<runId>.jsonl. Falls back
@@ -99,8 +101,9 @@ function planOf(run) {
   return evt?.payload ?? null;
 }
 
-export function createApp({ record = true, client, cacheDir } = {}) {
+export function createApp({ record = true, client, cacheDir, historyFile = process.env.LOOKOUT_HISTORY_FILE || HISTORY_FILE } = {}) {
   const app = express();
+  const history = createHistory(historyFile);
   app.use(express.json({ limit: '200kb' }));
   const cacheDirUsed = cacheDir === undefined ? CACHE_DIR : cacheDir;
   let lastRun = null; // { runId, mode, startedAt, finishedAt, outcome, gatekeeper? }
@@ -142,6 +145,15 @@ export function createApp({ record = true, client, cacheDir } = {}) {
       .finally(() => {
         run.close();
         const end = run.history.findLast((e) => e.kind === 'run.complete' || e.kind === 'run.failed');
+        // run history: every completed run with a plan (fake test runs are not saved)
+        if (mode !== 'fake') {
+          try {
+            const entry = entryFromRun(run, { mode });
+            if (entry) history.add(entry);
+          } catch (err) {
+            console.error('history:', err.message);
+          }
+        }
         Object.assign(mine, {
           finishedAt: new Date().toISOString(),
           outcome: end?.kind === 'run.complete' ? 'complete' : 'failed',
@@ -201,6 +213,42 @@ export function createApp({ record = true, client, cacheDir } = {}) {
       if (kit) return res.json({ runId: run.id, replay: run.replay, kit });
     }
     res.status(404).json({ error: 'no kit for this scheme in recent runs' });
+  });
+
+  // Run history (last 20 completed runs), one entry, and a comparison of two.
+  app.get('/api/history', (_req, res) => res.json({ runs: history.list().map(summarize) }));
+  app.get('/api/history/compare', (req, res) => {
+    const a = history.get(String(req.query.a ?? ''));
+    const b = history.get(String(req.query.b ?? ''));
+    if (!a || !b) return res.status(404).json({ error: 'both runs must be in the history (?a=older&b=newer)' });
+    const [older, newer] = a.savedAt <= b.savedAt ? [a, b] : [b, a];
+    res.json({ older: summarize(older), newer: summarize(newer), diff: diffPlans(older.plan, newer.plan) });
+  });
+  app.get('/api/history/:id', (req, res) => {
+    const e = history.get(req.params.id);
+    if (!e) return res.status(404).json({ error: 'not in the history' });
+    res.json(e);
+  });
+
+  // Re-run the Judge and Ranker on a finished plan with an edited profile (no fetching).
+  // Body: { runId | historyId, profile }.
+  app.post('/api/rejudge', (req, res) => {
+    const body = req.body ?? {};
+    const run = body.runId ? getRun(body.runId) : null;
+    const plan = (run && planOf(run)) ?? (body.historyId ? history.get(body.historyId)?.plan : null) ?? (body.runId ? history.get(body.runId)?.plan : null);
+    if (!plan) return res.status(404).json({ error: 'no finished plan for that run (in memory or in the history)' });
+    const p = body.profile ?? {};
+    const tri = (v) => (v === true || v === false ? v : undefined);
+    const income = Number(p.familyIncome);
+    const profile = {
+      ...SAMPLE_STUDENT,
+      ...(typeof p.gender === 'string' && ['male', 'female'].includes(p.gender) && { gender: p.gender }),
+      ...(typeof p.category === 'string' && ['OBC', 'SC', 'ST', 'General', 'EWS'].includes(p.category) && { category: p.category }),
+      ...(Number.isFinite(income) && income >= 0 && p.familyIncome !== '' && p.familyIncome !== null && { familyIncome: income }),
+      ...(tri(p.capAdmission) !== undefined && { capAdmission: p.capAdmission }),
+      ...(tri(p.domicileProof) !== undefined && { domicileProof: p.domicileProof }),
+    };
+    res.json({ plan: rejudgePlan(plan, profile), profile });
   });
 
   // Watchtower: re-fetch the sources of a plan's items now and report real changes only.

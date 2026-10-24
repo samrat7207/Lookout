@@ -25,6 +25,12 @@ export function initialState() {
     headline: null,
     watchtower: null,
     summary: null,
+    // observability (System view): counts straight from the events
+    eventCounts: {}, // kind -> n
+    gate: { hits: 0, misses: 0, rateLimited: 0, blocked: 0, fallbacks: 0, blockedHosts: [] },
+    tools: { ok: 0, failed: 0, cached: 0 }, // TinyFish calls as seen by the scouts
+    verification: {}, // opportunityId -> { status, reason, checkedAt }
+    profile: null, // Profiler output
     error: null,
   };
 }
@@ -87,15 +93,23 @@ export function describe(evt) {
     case 'watchtower.change': return `Date changed: ${p.changes?.length ?? 0} schemes`;
     case 'run.complete': return `Run complete: ${p.findings ?? 0} findings, ${p.errors ?? 0} errors`;
     case 'run.failed': return `Run failed: ${p.message ?? ''}`;
+    case 'cache.hit': return `Cache hit: ${p.url ?? p.call} (fetched ${Math.round((p.ageMs ?? 0) / 60000)} min ago)`;
+    case 'cache.miss': return `Cache miss: ${p.url ?? p.call}, fetching live`;
+    case 'rate.limited': return `Backing off ${Math.round((p.retryInMs ?? 0) / 100) / 10} s (${p.reason}), attempt ${p.attempt}`;
+    case 'blocked': return `Blocked at ${p.host}: ${p.reason}. Stopped for this host`;
+    case 'fallback': return `Fallback to the cached copy from ${p.usingCacheFrom}: ${p.reason}`;
     default: return evt.kind;
   }
 }
+
+/** Agents that help but do not visit a source; they are not counted in "sources done". */
+export const HELPERS = new Set(['mayor', 'gatekeeper', 'verifier', 'profiler']);
 
 const LEVEL = { 'agent.error': 'error', 'run.failed': 'error', 'agent.found': 'good', 'plan.ready': 'good', 'run.complete': 'good' };
 
 /** Sources done / total: every agent except the mayor (Town Hall) is a source visit. */
 export function sourceCounts(state) {
-  const ids = state.agentOrder.filter((id) => id !== 'mayor');
+  const ids = state.agentOrder.filter((id) => !HELPERS.has(id));
   const done = ids.filter((id) => state.agents[id].result).length;
   const failed = ids.filter((id) => state.agents[id].result === 'failed').length;
   return { done, total: ids.length, failed };
@@ -134,6 +148,7 @@ export function reduce(state, evt) {
   };
   const setSource = (b, key, fn) => ({ ...b.sources, [key]: fn(b.sources[key]) });
 
+  s.eventCounts = { ...s.eventCounts, [evt.kind]: (s.eventCounts[evt.kind] ?? 0) + 1 };
   let known = true;
   switch (evt.kind) {
     case 'run.mode':
@@ -267,16 +282,40 @@ export function reduce(state, evt) {
       const agents = {};
       for (const id of s.agentOrder) {
         const a = s.agents[id];
-        const settled = a.result ?? (id === 'mayor' && evt.kind === 'run.complete' ? 'done' : a.status === 'working' || a.status === 'walking' ? 'failed' : a.status);
+        const settled = a.result ?? (HELPERS.has(id) && evt.kind === 'run.complete' ? 'done' : a.status === 'working' || a.status === 'walking' ? 'failed' : a.status);
         agents[id] = { ...a, status: settled, result: a.result ?? (settled === 'done' || settled === 'failed' ? settled : null) };
       }
       s.agents = agents;
       break;
     }
 
+    case 'cache.hit':
+    case 'cache.miss':
+    case 'rate.limited':
+    case 'blocked':
+    case 'fallback': {
+      const g = { ...s.gate };
+      if (evt.kind === 'cache.hit') g.hits++;
+      if (evt.kind === 'cache.miss') g.misses++;
+      if (evt.kind === 'rate.limited') g.rateLimited++;
+      if (evt.kind === 'fallback') g.fallbacks++;
+      if (evt.kind === 'blocked') {
+        g.blocked++;
+        if (p.host && !g.blockedHosts.includes(p.host)) g.blockedHosts = [...g.blockedHosts, p.host];
+      }
+      s.gate = g;
+      agentPatch({ status: evt.kind === 'blocked' ? 'failed' : 'working' });
+      break;
+    }
+
     default:
       known = false;
   }
+
+  // TinyFish calls as the scouts saw them: each working call ends ok or failed
+  if (evt.kind === 'agent.error' && ['fetch', 'search'].includes(p.tool)) s.tools = { ...s.tools, failed: s.tools.failed + 1 };
+  if (evt.kind === 'cache.hit') s.tools = { ...s.tools, cached: s.tools.cached + 1 };
+  if (evt.kind === 'cache.miss') s.tools = { ...s.tools, ok: s.tools.ok + 1 };
 
   if (known) {
     s.log = [...s.log.slice(-(LOG_LIMIT - 1)), { seq: evt.seq, t: evt.t ?? 0, kind: evt.kind, agentId: evt.agentId ?? null, building: evt.building ?? null, text: last.text, level: LEVEL[evt.kind] ?? (evt.kind === 'agent.error' ? 'error' : 'info') }];

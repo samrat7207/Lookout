@@ -23,7 +23,10 @@ const JOB = {
   'deep-diver': 'researcher',
   'mahadbt-scout': 'verifier',
   watchman: 'verifier',
+  verifier: 'verifier',
+  profiler: 'researcher',
   mayor: 'orchestrator',
+  gatekeeper: 'warden',
 };
 export const jobOf = (id) => JOB[id] ?? 'researcher';
 
@@ -61,6 +64,14 @@ function agentLook(id) {
     box(0.03, 0.17, 0.012, 0, 0.69, 0.106, color); // tie in the role colour
     box(0.2, 0.26, 0.016, 0.06, 0.6, 0.17, '#1c1f24', -0.5); // tablet
     box(0.17, 0.22, 0.004, 0.06, 0.605, 0.18, '#5fb3f0', -0.5); // tablet screen
+  } else if (job === 'warden') {
+    sleeve = '#2b2d42';
+    pants = '#2b2d42';
+    torso('#2b2d42');
+    box(0.29, 0.32, 0.135, 0, 0.63, 0.008, '#d4f000'); // hi-vis vest
+    box(0.29, 0.03, 0.137, 0, 0.6, 0.009, '#e0e0e0'); // reflective stripe
+    box(0.03, 0.3, 0.03, 0.12, 0.55, 0.16, '#5b6169', -0.2); // stop paddle handle
+    add(new THREE.CylinderGeometry(0.1, 0.1, 0.02, 12).rotateX(Math.PI / 2 - 0.2).translate(0.12, 0.74, 0.19), '#e63946'); // paddle
   } else if (job === 'verifier') {
     sleeve = '#f4f6f8';
     pants = '#26324a';
@@ -78,8 +89,8 @@ function agentLook(id) {
   }
   add(new THREE.CylinderGeometry(0.045, 0.05, 0.06, 8).translate(0, 0.83, 0), SKIN); // neck
   add(new THREE.IcosahedronGeometry(0.105, 1).translate(0, 0.93, 0), SKIN); // head
-  if (job === 'verifier') {
-    add(new THREE.CylinderGeometry(0.115, 0.115, 0.06, 12).translate(0, 1.0, 0), color); // uniform cap
+  if (job === 'verifier' || job === 'warden') {
+    add(new THREE.CylinderGeometry(0.115, 0.115, 0.06, 12).translate(0, 1.0, 0), job === 'warden' ? '#d4f000' : color); // uniform cap
     box(0.16, 0.012, 0.09, 0, 0.975, 0.1, shade(color, -0.3)); // brim
   } else {
     add(new THREE.SphereGeometry(0.118, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.945, -0.006), job === 'orchestrator' ? '#3a3a3a' : '#2b1d14');
@@ -122,7 +133,7 @@ function Character({ agent, playback, selected, onSelect, lane }) {
   const sim = useRef(null);
   if (!sim.current) {
     const at = agent.status === 'walking' && agent.target !== 'townhall' ? 'townhall' : agent.target;
-    const [x, z] = spotFor(at, agent.slot, isMayor);
+    const [x, z] = spotFor(at, agent.slot, isMayor, agent.id);
     sim.current = { pos: new THREE.Vector3(x, LOT_TOP, z), place: at, target: at, path: null, seg: 1, speed: 4, heading: FACE_CAMERA, born: -1 };
     positions.set(agent.id, sim.current.pos);
   }
@@ -143,7 +154,7 @@ function Character({ agent, playback, selected, onSelect, lane }) {
 
     // a new target from the events: plan a route from wherever we are now
     if (agent.target !== s.target) {
-      const [tx, tz] = spotFor(agent.target, agent.slot, isMayor);
+      const [tx, tz] = spotFor(agent.target, agent.slot, isMayor, agent.id);
       const path = route([s.pos.x, s.pos.z, s.pos.y], s.place, [tx, tz], agent.target, lane);
       // brisk toy walk: a trip takes about 3 s of run time whatever its length
       s.speed = THREE.MathUtils.clamp(pathLength(path) / 3, 3.5, 9);

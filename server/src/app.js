@@ -52,6 +52,7 @@ export const starters = {
       return await runLive(run, {
         profile: { ...SAMPLE_STUDENT, ...body.profile },
         client: ctx.client,
+        ...(ctx.cacheDir !== undefined && { cacheDir: ctx.cacheDir }),
         onLive: () => {
           run.emit('run.mode', { payload: { mode: 'live' } });
           if (ctx.record) recordRun(run).catch((err) => console.error('recorder:', err.message));
@@ -73,8 +74,9 @@ function parseSpeed(value) {
   return Number.isFinite(n) && n > 0 && n <= MAX_SPEED ? n : undefined;
 }
 
-/** @param {{ record?: boolean, client?: {search: Function, fetchPages: Function} }} [opts] client is for tests */
-export function createApp({ record = true, client } = {}) {
+/** @param {{ record?: boolean, client?: {search: Function, fetchPages: Function}, cacheDir?: string|null }} [opts]
+ *  client and cacheDir are for tests (null = no disk cache) */
+export function createApp({ record = true, client, cacheDir } = {}) {
   const app = express();
   app.use(express.json());
 
@@ -103,7 +105,7 @@ export function createApp({ record = true, client } = {}) {
     if (record && mode === 'fake') recordRun(run).catch((err) => console.error('recorder:', err.message));
 
     Promise.resolve()
-      .then(() => start(run, body, { record, client }))
+      .then(() => start(run, body, { record, client, cacheDir }))
       .catch((err) => {
         console.error(`run ${run.id} failed:`, err);
         if (!run.closed) run.emit('run.failed', { payload: { message: err.message } });

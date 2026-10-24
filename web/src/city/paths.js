@@ -70,9 +70,14 @@ export const MAYOR_SPOT = [0, 0.85];
 export const AGENT_Y = LOT_TOP;
 
 /** Where agent number `slot` stands at a place. The mayor always stands at the hall door. */
-export function spotFor(place, slot, isMayor = false) {
+// helpers stand at fixed posts on the Town Hall block: the Gatekeeper by the crossing,
+// the Verifier and the Profiler on the plaza
+export const HELPER_SPOTS = { gatekeeper: [5.2, 4.3], verifier: [-3.0, 3.4], profiler: [2.9, 3.5] };
+
+export function spotFor(place, slot, isMayor = false, agentId = null) {
   if (place === 'townhall') {
     if (isMayor) return MAYOR_SPOT;
+    if (HELPER_SPOTS[agentId]) return HELPER_SPOTS[agentId];
     return [TOWNHALL_SLOTS[slot % TOWNHALL_SLOTS.length], TOWNHALL_Z];
   }
   const def = PLACE_DEFS[place];

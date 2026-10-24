@@ -10,6 +10,9 @@ export const ROLE_COLORS = {
   watchman: '#76B7B2',
   mayor: '#EDC948',
   'deep-diver': '#B07AA1',
+  gatekeeper: '#9bc53d',
+  verifier: '#5e60ce',
+  profiler: '#00a6a6',
 };
 export const roleColor = (id) => ROLE_COLORS[id] ?? '#9aa3ad';
 

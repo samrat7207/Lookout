@@ -7,7 +7,10 @@
 // Not used tonight (see SOURCES_NOT_USED): Vidyasaarathi, hackathon boards, the Watchtower.
 // Deadlines come only from fetched page text; otherwise "deadline not published".
 
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as tinyfish from './tinyfish/client.js';
+import { createGatekeeper, DEFAULT_TTL_MS } from './tinyfish/gatekeeper.js';
 import { findStudentClosingDate, parseAllScholarships, NSP_ALL_SCHOLARSHIPS_URL, slugify } from './parse/nsp.js';
 import { parseBuddy4Study } from './parse/buddy4study.js';
 import { assessByName, assessPageText } from './rank/rules.js';
@@ -36,20 +39,31 @@ export class LiveUnavailableError extends Error {}
 const FATAL = new Set(['NO_API_KEY', 'NETWORK', 'TIMEOUT']);
 const isFatal = (err) => FATAL.has(err.code) || err.status === 401 || err.status === 403;
 
+export const CACHE_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '.cache', 'tinyfish');
+
 const AGENTS = {
   'nsp-scout': { name: 'Nisha', role: 'NSP Researcher', building: 'nsp' },
   'mahadbt-scout': { name: 'Mahi', role: 'State Verifier', building: 'mahadbt' },
   'foundations-scout': { name: 'Fauzi', role: 'Foundations Researcher', building: 'foundations' },
   mayor: { name: 'Mayor Tara', role: 'Orchestrator', building: 'townhall' },
+  gatekeeper: { name: 'Gita', role: 'Gatekeeper', building: 'townhall' },
 };
 
 /**
  * @param {ReturnType<import('./bus.js').createRun>} run
- * @param {{ profile?: object, client?: {search: Function, fetchPages: Function}, today?: string, onLive?: Function }} [opts]
- *   onLive runs once the preflight passed, before the first event (the server starts recording there)
+ * @param {{ profile?: object, client?: {search: Function, fetchPages: Function}, today?: string, onLive?: Function,
+ *   cacheDir?: string|null, ttlMs?: number, robots?: boolean }} [opts]
+ *   onLive runs once the preflight passed, before the first event (the server starts recording there).
+ *   Every web call goes through the Gatekeeper (cache, rate limits, robots.txt, block handling).
  */
 export async function runLive(run, opts = {}) {
   const { profile = recon.SAMPLE_STUDENT, client = tinyfish, today = istToday(), onLive = () => {} } = opts;
+  const gk = createGatekeeper({
+    client,
+    cacheDir: opts.cacheDir === undefined ? CACHE_DIR : opts.cacheDir,
+    ttlMs: opts.ttlMs ?? DEFAULT_TTL_MS,
+    robots: opts.robots ?? true,
+  });
   const startedAt = Date.now();
   const now = () => new Date().toISOString();
 
@@ -57,12 +71,12 @@ export async function runLive(run, opts = {}) {
   // nothing has been emitted yet, so the server can fall back to a recording cleanly.
   let nspSearch;
   try {
-    nspSearch = await client.search({ query: 'closing dates for student application 2026-27', include_domains: 'scholarships.gov.in' });
+    nspSearch = await gk.search({ query: 'closing dates for student application 2026-27', include_domains: 'scholarships.gov.in' });
   } catch (err) {
     if (isFatal(err)) throw new LiveUnavailableError(`${err.code}${err.status ? ` (${err.status})` : ''}: ${err.message}`);
     nspSearch = { error: err };
   }
-  const searchCheckedAt = now();
+  const searchCheckedAt = nspSearch.fetchedAt ?? now();
 
   const found = [];
   const notApplicable = [];
@@ -78,6 +92,8 @@ export async function runLive(run, opts = {}) {
   for (const id of agentIds) {
     run.emit('agent.spawned', { agentId: id, building: 'townhall', payload: { name: AGENTS[id].name, role: AGENTS[id].role } });
   }
+  // the Gatekeeper owns cache.hit / cache.miss / rate.limited / blocked / fallback
+  gk.attach((kind, payload) => run.emit(kind, { agentId: 'gatekeeper', building: 'townhall', payload }));
 
   const as = (agentId) => {
     const { building } = AGENTS[agentId];
@@ -98,23 +114,24 @@ export async function runLive(run, opts = {}) {
       back: () => emit('agent.returning', { to: 'townhall' }),
     };
   };
-  const log = (name, url, ok, error) => ledger.push({ name, url, ok, checkedAt: now(), ...(error && { error }) });
+  const log = (name, url, ok, error, extra = {}) => ledger.push({ name, url, ok, checkedAt: extra.checkedAt ?? now(), ...(error && { error }), ...extra });
 
   /** Fetch with per-URL results; failures become agent.error and ledger entries, never crashes. */
   async function fetchAll(a, label, entries, opts2 = {}) {
     a.work('fetch', entries.length === 1 ? entries[0].url : `${entries.length} pages`, label);
     try {
-      const { results, errors: errs } = await client.fetchPages({ urls: entries.map((e) => e.url), format: 'markdown', per_url_timeout_ms: 45_000, ...opts2 });
+      const { results, errors: errs } = await gk.fetchPages({ urls: entries.map((e) => e.url), format: 'markdown', per_url_timeout_ms: 45_000, ...opts2 });
       const byUrl = new Map(results.map((r) => [r.url, r]));
       for (const e of entries) {
         const r = byUrl.get(e.url);
         const err = errs.find((x) => x.url === e.url);
         if (r?.text) {
-          log(e.name, e.url, true);
-          r.checkedAt = now();
+          // "last checked" is when the text was really fetched (older if it came from the cache)
+          r.checkedAt = r.fetchedAt ?? now();
+          log(e.name, e.url, true, null, { checkedAt: r.checkedAt, cached: !!r.cached, ...(r.stale && { stale: true }) });
         } else {
-          const why = err ? `${err.error}${err.status ? ` (${err.status})` : ''}` : 'empty page';
-          log(e.name, e.url, false, why);
+          const why = err ? `${err.error}${err.status ? ` (${err.status})` : ''}${err.reason ? `: ${err.reason}` : ''}` : 'empty page';
+          log(e.name, e.url, false, why, err?.blocked ? { blocked: true } : {});
           a.error('fetch', e.url, { code: err?.error ?? 'empty', message: `${e.name} did not load: ${why}` });
         }
       }
@@ -251,7 +268,7 @@ export async function runLive(run, opts = {}) {
     a.work('search', 'B.Tech engineering scholarship 2026-27 deadline (buddy4study.com)', 'Search Buddy4Study');
     let urls = [];
     try {
-      const res = await client.search({ query: 'scholarship 2026-27 engineering B.Tech students deadline date', include_domains: 'buddy4study.com' });
+      const res = await gk.search({ query: 'scholarship 2026-27 engineering B.Tech students deadline date', include_domains: 'buddy4study.com' });
       ledger.push({ name: 'Buddy4Study Search', url: 'https://www.buddy4study.com/', ok: true, checkedAt: now() });
       urls = [...new Set((res.results ?? []).map((r) => r.url).filter((u) => /buddy4study\.com\/(page|scholarship)\//.test(u)))].slice(0, MAX_B4S_PAGES);
     } catch (err) {
@@ -303,7 +320,8 @@ export async function runLive(run, opts = {}) {
   const sources = () => {
     const failed = ledger.filter((l) => !l.ok).length;
     const times = ledger.map((l) => l.checkedAt).sort();
-    return { checked: ledger.length, failed, lastChecked: times.at(-1) ?? null, list: ledger, notUsed: SOURCES_NOT_USED };
+    const cached = ledger.filter((l) => l.cached).length;
+    return { checked: ledger.length, failed, cached, lastChecked: times.at(-1) ?? null, list: ledger, notUsed: SOURCES_NOT_USED, gatekeeper: gk.stats() };
   };
   const planNow = (extra = {}) => buildPlan(found, { today, headline, notes, notApplicable, ruleEvidence, sources: sources(), ...extra });
   const mayorPlan = (kind, extra) => run.emit(kind, { agentId: 'mayor', building: 'townhall', payload: planNow(extra) });
@@ -322,5 +340,6 @@ export async function runLive(run, opts = {}) {
     run.emit('kit.ready', { agentId: 'mayor', building: 'townhall', payload: kit });
   }
   mayorPlan('plan.ready', { kitIds });
-  run.emit('run.complete', { payload: { durationMs: Date.now() - startedAt, findings: found.length, errors } });
+  run.emit('agent.done', { agentId: 'gatekeeper', building: 'townhall', payload: { findings: 0, durationMs: Date.now() - startedAt, ...gk.stats() } });
+  run.emit('run.complete', { payload: { durationMs: Date.now() - startedAt, findings: found.length, errors, gatekeeper: gk.stats() } });
 }

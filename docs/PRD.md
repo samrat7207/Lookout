@@ -44,7 +44,7 @@ Enter course, state and category once. Watch a tiny city of TinyFish agents go a
 | P0-10 | **Application Kit** for each scholarship in the plan: required documents, the form fields with the persona's values prefilled, a step list, the deadline and the source link. **Read-only and prefill-only.** | The kit panel shows the notice "Lookout never submits forms and never asks for, enters or stores passwords, OTPs or Aadhaar numbers." Sensitive fields (Aadhaar, OTP, password, bank account) are listed as "enter this yourself on the official portal" and are never prefilled. |
 | P0-11 | The persona is labelled **"sample student"** wherever it appears in the UI | No invented name appears in the UI |
 
-**Build order.** These requirements are delivered across the 6 stages in MILESTONES: P0-7 city (Stage 1); P0-8 characters and bubbles on the stream (Stage 2); P0-2, P0-3, P0-4 and P0-4b real data (Stage 3); P0-5, P0-6, P0-10 and P0-11 plan, kit and persona UI (Stage 4); P1-1 and P1-6 Watchtower and Opportunities (Stage 5); P0-9 mock mode and the remaining P1s (Stage 6). P0-1 (the form) lands in Stage 4. Until then, Stage 2 uses a "Run (fake)" button.
+**Build order.** These requirements are delivered across the 6 stages in MILESTONES: P0-7 city (Stage 1); P0-8 characters and bubbles on the stream (Stage 2); P0-2, P0-3, P0-4 and P0-4b real data (Stage 3); P0-5, P0-6, P0-10 and P0-11 plan, kit and persona UI (Stage 4); P1-1 and P1-6 Watchtower and Opportunities (Stage 5); P0-9 mock mode and the remaining P1s (Stage 6). P0-1 (the form) lands in Stage 4. Until then, Stage 2 uses a "Play recorded run" button that replays `recordings/fake-run.jsonl`.
 
 ## 5. Should-haves (P1)
 

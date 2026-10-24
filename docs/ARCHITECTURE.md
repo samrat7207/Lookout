@@ -46,10 +46,10 @@ HACKIIITD/
 │        └─ ranker.js         ✅ score, filter, sort by deadline (APPROACH D5)
 ├─ web/
 │  ├─ package.json            ✅ vite, react, three, @react-three/fiber, @react-three/drei
-│  ├─ vite.config.js          ✅ S2 adds the proxy /api -> http://localhost:8787
+│  ├─ vite.config.js          ✅ proxy /api -> http://localhost:8787
 │  └─ src/
 │     ├─ main.jsx, App.jsx, styles.css   ✅ (no <StrictMode>: see main.jsx)
-│     ├─ city/                ✅ S1: the low-poly city (29 draw calls, ~82k triangles)
+│     ├─ city/                ✅ S1–S2: the low-poly city (about 60 draw calls with shadows and agents, ~83k triangles)
 │     │  ├─ City.jsx          Canvas, iso camera rig, controls, lights, tile shadow, ?stats
 │     │  ├─ layout.js         grid, roads, block contents, landmark positions
 │     │  ├─ batch.js          collector of primitive instances (box, cylinder, cone, ...)
@@ -57,12 +57,13 @@ HACKIIITD/
 │     │  ├─ buildCity.js      ground, roads, markings, crosswalks, filler blocks, street furniture, parking
 │     │  ├─ props.js          buildings with window grids + rooftop clutter, trees, lamps, benches, flowers
 │     │  ├─ landmarks.js      the 6 landmark designs (procedural)
-│     │  ├─ Traffic.jsx       looping keep-left cars and trucks + parked cars (instanced)
-│     │  ├─ Landmarks.jsx     hover hit boxes, highlight ring, DOM label overlay (one useFrame projects all labels)
+│     │  ├─ Citizens.jsx      S2: ambient sidewalk walkers (2 instanced meshes, decoration only)
+│     │  ├─ paths.js          S2: sidewalk graph (citizens) and road router (agents)
+│     │  ├─ Agents.jsx        S2: agent characters, name tags, building progress rings
+│     │  ├─ Landmarks.jsx     hover/click hit boxes, highlight ring, DOM labels with status chips
 │     │  └─ Beacon.jsx        Watchtower beacon and beam
-│     ├─ city/Character.jsx, SpeechBubble.jsx   S2
-│     ├─ state/useRunStream.js, reducer.js      S2
-│     └─ ui/ProfileForm.jsx, PlanPanel.jsx, KitDrawer.jsx, Countdown.jsx (S4), ModeToggle.jsx (S6)
+│     ├─ state/useRunStream.js, reducer.js      ✅ S2 (reducer tested in web/test/)
+│     └─ ui/RunBar.jsx, EventLog.jsx, SideCard.jsx ✅ S2; ProfileForm, PlanPanel, KitDrawer, Countdown (S4), ModeToggle (S6)
 └─ recordings/
    ├─ fake-run.jsonl          ✅ committed: generated fake run (npm run fake:record)
    ├─ demo-golden.jsonl       S6: committed recorded real run used for MOCK MODE
@@ -77,6 +78,7 @@ HACKIIITD/
 | `POST` | `/api/runs` | Body `{ profile: {course, state, category, gender?, disability?}, mode: "live"|"mock", recording?: "demo-golden", speed?: 1 }` → `{ runId }` |
 | `GET` | `/api/runs/:runId/events` | SSE stream. On connect it replays buffered history first, then live events. |
 | `GET` | `/api/recordings` | List of available recordings for the mock dropdown |
+| `GET` / `POST` | `/api/runs/:runId/control` | Replays only: read or set `{ paused, speed }` (speed 0 to 16). 409 for live and fake runs. |
 | `POST` | `/api/watchtower/check` | Run the Monitor now and diff (also triggered inside a run) |
 | `POST` | `/api/webhooks/monitor` | Optional. Receives Monitor webhook payloads and emits `watchtower.*` events on the global channel. |
 
@@ -127,6 +129,6 @@ monitors.create / get / runNow / pause / remove                       // https:/
 ## 7. Frontend state
 
 - `useRunStream(runId)` opens an `EventSource` and dispatches each event to `reducer`.
-- City state: `{ agents: {id: {building, status, bubble, glow}}, buildings: {id: {status}}, findings: [], plan: null, watchtower: {...}, mode }`.
+- City state: `{ runId, status, agents: {id: {status, target, result, tool, url, retrying, bubble, lastEvent}}, buildings: {id: {status, sources, findings, lastEvent}}, log: [], plan, headline, watchtower }`.
 - The reducer is pure, so the same events always give the same picture. This is why replay looks identical to live.
 - Movement: an `agent.walking` event sets a target building. `Character` lerps toward it in `useFrame`. Arrival is visual only, and the next event drives the next state.

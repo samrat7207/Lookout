@@ -45,19 +45,20 @@ HACKIIITD/
 │        ├─ rules.js          S3: profile -> keyword rules (APPROACH D4)
 │        └─ ranker.js         ✅ score, filter, sort by deadline (APPROACH D5)
 ├─ web/
-│  ├─ package.json            S1: vite, react, three, @react-three/fiber, @react-three/drei
-│  ├─ vite.config.js          S1; S2 adds the proxy /api -> http://localhost:8787
+│  ├─ package.json            ✅ vite, react, three, @react-three/fiber, @react-three/drei
+│  ├─ vite.config.js          ✅ S2 adds the proxy /api -> http://localhost:8787
 │  └─ src/
-│     ├─ main.jsx, App.jsx, styles.css   S1
-│     ├─ city/                S1: the low-poly city
-│     │  ├─ City.jsx          Canvas, iso camera, controls, lights, stats
+│     ├─ main.jsx, App.jsx, styles.css   ✅ (no <StrictMode>: see main.jsx)
+│     ├─ city/                ✅ S1: the low-poly city (29 draw calls, ~82k triangles)
+│     │  ├─ City.jsx          Canvas, iso camera rig, controls, lights, tile shadow, ?stats
 │     │  ├─ layout.js         grid, roads, block contents, landmark positions
 │     │  ├─ batch.js          collector of primitive instances (box, cylinder, cone, ...)
 │     │  ├─ InstancedBatch.jsx  one InstancedMesh per primitive kind, per-instance colour
-│     │  ├─ buildCity.js      roads, markings, filler buildings, windows, rooftops, trees, props
+│     │  ├─ buildCity.js      ground, roads, markings, crosswalks, filler blocks, street furniture, parking
+│     │  ├─ props.js          buildings with window grids + rooftop clutter, trees, lamps, benches, flowers
 │     │  ├─ landmarks.js      the 6 landmark designs (procedural)
 │     │  ├─ Traffic.jsx       looping keep-left cars and trucks + parked cars (instanced)
-│     │  ├─ Landmarks.jsx     labels, hover cards, highlight rings
+│     │  ├─ Landmarks.jsx     hover hit boxes, highlight ring, DOM label overlay (one useFrame projects all labels)
 │     │  └─ Beacon.jsx        Watchtower beacon and beam
 │     ├─ city/Character.jsx, SpeechBubble.jsx   S2
 │     ├─ state/useRunStream.js, reducer.js      S2

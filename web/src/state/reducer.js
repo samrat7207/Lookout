@@ -17,8 +17,11 @@ export function initialState() {
     agents: {},
     buildings: {},
     log: [],
+    runMode: null, // { mode: live | replay | mock, recording?, recordedAt?, fallbackReason? }
+    sourcesNotUsed: [],
     plan: null,
     kits: 0,
+    kitsById: {},
     headline: null,
     watchtower: null,
     summary: null,
@@ -66,6 +69,8 @@ function newBuilding(id) {
 export function describe(evt) {
   const p = evt.payload ?? {};
   switch (evt.kind) {
+    case 'run.mode':
+      return p.mode === 'live' ? 'Live run: reading real pages through TinyFish' : `${p.mode === 'mock' ? 'Mock run' : 'Replaying recorded run'}${p.recording ? ` (${p.recording})` : ''}${p.fallbackReason ? `. Fallback: ${p.fallbackReason}` : ''}`;
     case 'run.started': return `Run started (${p.mode ?? '?'}${evt.replay ? ', replay' : ''}) for the ${p.profile?.label ?? 'student'}`;
     case 'agent.spawned': return `${p.name ?? evt.agentId} (${p.role ?? 'agent'}) spawned at Town Hall`;
     case 'agent.walking': return `Walking to ${p.to}: ${p.reason ?? ''}`.trim();
@@ -131,9 +136,15 @@ export function reduce(state, evt) {
 
   let known = true;
   switch (evt.kind) {
+    case 'run.mode':
+      // the first one wins: a replayed live recording carries its own "live" marker
+      s.runMode ??= p;
+      break;
+
     case 'run.started':
       s.status = 'running';
       s.mode = p.mode ?? null;
+      s.sourcesNotUsed = p.sourcesNotUsed ?? [];
       break;
 
     case 'agent.spawned':
@@ -236,6 +247,7 @@ export function reduce(state, evt) {
 
     case 'kit.ready':
       s.kits += 1;
+      if (p.id) s.kitsById = { ...s.kitsById, [p.id]: p };
       agentPatch({ status: 'working' });
       buildingPatch('townhall', { status: 'busy' });
       break;

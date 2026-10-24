@@ -8,14 +8,16 @@
 
 export const CONFLICT_TEXT = 'These may not be combinable. Check the current NSP rules before applying.';
 
-const CSSS = ['nsp:pm-usp-csss'];
-const STATE_FEE_REIMBURSEMENT = ['mahadbt:post-matric-obc', 'mahadbt:tuition-exam-fees-obc'];
+// Groups match on the item id or its title (live ids are built from the scheme names).
+const YASASVI_COLLEGE = /top class education in college for obc|^nsp:pm-yasasvi-college/i;
+const CSSS = /scholarship for college and university students|\bCSSS\b|^nsp:pm-usp-csss$/i;
+const STATE_FEE_REIMBURSEMENT = /^mahadbt:(post-matric-obc|tuition-exam-fees-obc)$/;
 
 export const CONFLICT_RULES = [
   {
     id: 'nsp-one-merit-scheme',
     title: 'PM YASASVI (college) and PM-USP CSSS',
-    a: ['nsp:pm-yasasvi-college-obc-ebc-dnt'],
+    a: YASASVI_COLLEGE,
     b: CSSS,
     checkUrl: 'https://scholarships.gov.in/',
     // the sentence a scout looks for on the fetched NSP home page
@@ -39,15 +41,15 @@ export function findRuleEvidence(rule, text) {
 }
 
 /**
- * @param {{opportunityId: string}[]} items plan items
+ * @param {{opportunityId: string, title?: string}[]} items plan items
  * @param {Record<string, {quote: string, sourceUrl: string, checkedAt: string}>} [evidence]
  */
 export function findConflicts(items, evidence = {}, rules = CONFLICT_RULES) {
-  const listed = new Set(items.map((i) => i.opportunityId));
   const out = [];
+  const pick = (re) => items.filter((i) => re.test(i.opportunityId) || re.test(i.title ?? '')).map((i) => i.opportunityId);
   for (const rule of rules) {
-    const a = rule.a.filter((id) => listed.has(id));
-    const b = rule.b.filter((id) => listed.has(id));
+    const a = pick(rule.a);
+    const b = pick(rule.b);
     if (!a.length || !b.length) continue;
     const ev = evidence[rule.id];
     out.push({

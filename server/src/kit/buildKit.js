@@ -128,6 +128,7 @@ export function buildKit(opp, profile, { today }) {
     fields: fieldsFor(profile, portal),
     steps: portal.steps(opp, deadlineText),
     safety: SAFETY_NOTICE,
+    needsVerification: opp.needsVerification ?? false,
     generatedFrom: [...new Set([opp.sourceUrl, portal.applyUrl].filter(Boolean))],
   });
 }

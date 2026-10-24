@@ -66,7 +66,10 @@ export async function runFake(run, opts = {}) {
     run.emit('agent.spawned', { agentId: id, building: 'townhall', payload: { name: AGENTS[id].name, role: AGENTS[id].role } });
   }
 
-  const planNow = () => buildPlan(found, { today, headline, notes });
+  const notApplicable = [...recon.NOT_APPLICABLE, ...recon.MAHADBT_SKIPPED.map(({ title, reason, sourceUrl }) => ({ title, reason: reason[0].toUpperCase() + reason.slice(1), sourceUrl }))];
+  // the scripted run "checks" these sources; MahaDBT 2.0 is the one that fails
+  const sources = { checked: 6, failed: 1, lastChecked: recon.RECON_CHECKED_AT };
+  const planNow = (extra = {}) => buildPlan(found, { today, headline, notes, notApplicable, sources, ...extra });
   const returnHome = async (a) => {
     await sleep(600);
     a.back();
@@ -142,7 +145,7 @@ export async function runFake(run, opts = {}) {
     await sleep(1500);
     a.work('fetch', '2 Buddy4Study detail pages', 'Retry Buddy4Study pages');
     await sleep(2000);
-    a.progress(`Skipped "${recon.FOUNDATIONS_SKIPPED.title.slice(0, 40)}…": ${recon.FOUNDATIONS_SKIPPED.reason}`, 'fetch');
+    a.progress(`Listed as unclear: "${recon.FOUNDATIONS_SKIPPED.title.slice(0, 40)}…": ${recon.FOUNDATIONS_SKIPPED.reason}`, 'fetch');
     for (const o of recon.foundations) {
       await sleep(800);
       a.found(o);
@@ -196,6 +199,6 @@ export async function runFake(run, opts = {}) {
     await sleep(200);
     run.emit('kit.ready', { agentId: 'mayor', building: 'townhall', payload: kit });
   }
-  run.emit('plan.ready', { agentId: 'mayor', building: 'townhall', payload: buildPlan(found, { today, headline, notes, kitIds }) });
+  run.emit('plan.ready', { agentId: 'mayor', building: 'townhall', payload: planNow({ kitIds }) });
   run.emit('run.complete', { payload: { durationMs: Date.now() - startedAt, findings: found.length, errors } });
 }

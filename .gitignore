@@ -14,6 +14,7 @@ server/.cache/
 recordings/*
 !recordings/demo-golden.jsonl
 !recordings/fake-run.jsonl
+!recordings/real-run.jsonl
 
 # os / editor
 .DS_Store

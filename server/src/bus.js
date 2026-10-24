@@ -48,6 +48,12 @@ export function createRun({ runId = newRunId(), replay = false } = {}) {
       return evt;
     },
 
+    /** Live run that fell back to a recording before emitting anything: later events say replay: true. */
+    markReplay() {
+      replay = true;
+      run.replay = true;
+    },
+
     /** fn(evt) for each new event; fn(null) once when the run closes. Returns unsubscribe. */
     subscribe(fn) {
       subscribers.add(fn);

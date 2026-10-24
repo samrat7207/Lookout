@@ -1,33 +1,32 @@
-// npm run capture: refreshes the parser fixtures from the live sources through our own
-// TinyFish key (proves the key works server-side). Needs the key in server/.env.
+// npm run capture: one LIVE run (TinyFish Search + Fetch only) with the sample student,
+// recorded to recordings/real-run.jsonl. Replay mode and the live fallback use that file.
+// Needs the key in server/.env. Writes to a temp file first, so a failed run keeps the old recording.
 
-import { writeFileSync } from 'node:fs';
-import { fetchPages } from '../src/tinyfish/client.js';
-import { parseAllScholarships } from '../src/parse/nsp.js';
+import { renameSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { createRun } from '../src/bus.js';
+import { recordRun, RECORDINGS_DIR } from '../src/recorder.js';
+import { runLive } from '../src/liveRun.js';
 
-const FIXTURES = new URL('../test/fixtures/', import.meta.url);
-
-const targets = {
-  'https://scholarships.gov.in/All-Scholarships': 'nsp-all-scholarships.md',
-  'https://scholarships.gov.in/': 'nsp-home.md',
-  'https://mahadbt.maharashtra.gov.in/': 'mahadbt-landing.md',
-  'https://www.buddy4study.com/page/the-tata-capital-pankh-scholarship-programme': 'b4s-tata-pankh.md',
-  'https://www.buddy4study.com/page/hdfc-bank-parivartans-ecss-programme': 'b4s-hdfc-parivartan.md',
-  'https://devfolio.co/hackathons': 'devfolio-hackathons.md',
-  'https://mlh.io/seasons/2027/events': 'mlh-events.md',
-};
-
+const run = createRun({ runId: 'real-run' });
+const tmp = 'real-run.partial';
+const written = recordRun(run, { name: tmp });
 try {
-  const { results, errors } = await fetchPages({ urls: Object.keys(targets), format: 'markdown', per_url_timeout_ms: 90_000 });
-  for (const r of results) {
-    const name = targets[r.url];
-    if (!name) continue;
-    writeFileSync(new URL(name, FIXTURES), r.text);
-    console.log(`saved ${name} (${r.text.length} chars, ${Math.round(r.latency_ms)} ms)`);
-    if (name === 'nsp-all-scholarships.md') console.log(`  NSP parser: ${parseAllScholarships(r.text).length} schemes`);
-  }
-  for (const e of errors) console.error(`FAILED ${e.url}: ${e.error}${e.status ? ` (${e.status})` : ''}`);
+  run.emit('run.mode', { payload: { mode: 'live' } });
+  await runLive(run);
+  run.close();
+  await written;
+  renameSync(join(RECORDINGS_DIR, `${tmp}.jsonl`), join(RECORDINGS_DIR, 'real-run.jsonl'));
+  const plan = run.history.findLast((e) => e.kind === 'plan.ready')?.payload;
+  const errs = run.history.filter((e) => e.kind === 'agent.error');
+  console.log(`wrote recordings/real-run.jsonl: ${run.history.length} events, ${run.history.at(-1).t} ms`);
+  console.log(`plan: ${plan?.items.length ?? 0} items, ${plan?.notApplicable.length ?? 0} not applicable, ${plan?.conflicts.length ?? 0} conflicts; sources checked ${plan?.sources?.checked}, failed ${plan?.sources?.failed}`);
+  for (const i of plan?.items ?? []) console.log(`  #${i.rank} [${i.fit}] ${i.deadline ?? 'deadline not published'}  ${i.title.slice(0, 80)}`);
+  for (const e of errs) console.log(`  error at ${e.building}: ${e.payload.code}: ${e.payload.message.slice(0, 120)}`);
 } catch (err) {
-  console.error(`capture failed: ${err.code ?? ''} ${err.message}`);
+  run.close();
+  await written.catch(() => {});
+  rmSync(join(RECORDINGS_DIR, `${tmp}.jsonl`), { force: true });
+  console.error(`capture failed, old recording kept: ${err.message}`);
   process.exitCode = 1;
 }

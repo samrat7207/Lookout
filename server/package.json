@@ -10,6 +10,7 @@
     "dev": "node --watch --env-file-if-exists=.env src/index.js",
     "test": "node --test",
     "capture": "node --env-file-if-exists=.env scripts/capture.js",
+    "capture:fixtures": "node --env-file-if-exists=.env scripts/captureFixtures.js",
     "fake:record": "node scripts/recordFake.js"
   },
   "dependencies": {

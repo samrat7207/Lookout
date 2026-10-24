@@ -342,3 +342,9 @@ body {
 .tag--compact .tag__status::after { content: "✓"; font-size: 11px; }
 .tag--compact.tag--idle .tag__status::after { content: "…"; }
 .tag--compact .tag__pill:hover strong { display: inline; }
+
+.runbar__mode--live { color: #1d7a4f; font-weight: 600; }
+.runbar__replay { display: inline-block; padding: 0 7px; border-radius: 999px; background: #fff1d6; color: #8a5a00; font-weight: 700; }
+.runbar__why { color: #8a5a00; }
+.btn--accent, .btn--accent:hover:not(:disabled) { background: #ffd166; border-color: #e9b949; color: var(--ink); }
+.seg__btn:disabled { opacity: 0.45; cursor: default; }

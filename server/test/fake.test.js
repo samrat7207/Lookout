@@ -75,7 +75,7 @@ test('OPPORTUNITIES off: no opps-scout, no hackathons, plan still complete', asy
   assert.ok(!events.some((e) => e.agentId === 'opps-scout'));
   const plan = events.find((e) => e.kind === 'plan.ready').payload;
   assert.equal(plan.counts.hackathon, 0);
-  assert.equal(plan.items[0].deadline, '2026-10-31');
+  assert.equal(plan.items[0].deadline, '2026-10-26', 'Tata Pankh (unclear) closes first');
 });
 
 test('mock replay reproduces the recorded order with replay: true', async () => {

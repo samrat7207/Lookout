@@ -1,0 +1,445 @@
+{
+  "_header": {
+    "what": "Machine-readable eligibility rules for each scheme, with the sample student's match result and the reasoning behind it. Draft: nothing here is verified yet.",
+    "owner": "Aman Kumar. Commit this file to team/aman/eligibility-rules.json from your own git account, after you verify it.",
+    "lookout_feature": "Stage 3 persona ranker (server/src/rank/rules.js reads criteria[] and evaluates them against the profile) and Stage 4 plan screen (the 'why you match' line is matches_persona.why_you_match). Same ids as team/aman/application-kits.json and EVENT_SCHEMA Opportunity.id.",
+    "persona": { "label": "sample student", "gender": "male", "course": "btech", "course_name": "B.Tech Computer Engineering", "course_level": "UG", "year_of_study": 2, "social_category": "OBC", "state_domicile": "Maharashtra", "family_income_inr": null, "last_exam_percent": null },
+    "how_this_draft_was_made": "Prepared for the team on 2026-10-24 from live TinyFish Fetch/Search reads of the pages cited in each criterion (plus docs/RECON_FINDINGS.md). The persona does not state family income, marks, attendance or institute, so criteria on those come out 'unknown' and the scheme becomes 'conditional'. That is intended.",
+    "verify_before_commit": [
+      "Every criterion with clarity: 'unclear' (listed again in unclear_rules[]).",
+      "Every criterion with needs_verification: true.",
+      "Tuition Fees to OBC (freeship): the income rule. The scheme page states none.",
+      "Shahu Fee Reimbursement: the category rule comes from the Overview text, not the Eligibility list.",
+      "JSW UDAAN (Vidyasaarathi): read from a search snippet only; open the scheme page."
+    ]
+  },
+  "schema": {
+    "rule": {
+      "id": "string. '<source>:<slug>', same as Opportunity.id",
+      "title": "exact scheme name",
+      "category": "central | state | private",
+      "source": "nsp | mahadbt | buddy4study | vidyasaarathi | other",
+      "source_url": "main page the rule set was read from",
+      "read_on": "YYYY-MM-DD",
+      "scheme_type": "Merit | Welfare | null (NSP: a student may take only ONE merit scheme, see global_rules)",
+      "criteria": "array of criterion",
+      "conflicts_with": "array of { id, reason, from, read_on }: schemes that cannot be taken together",
+      "matches_persona": "match_result",
+      "verified": "boolean. true only after the owner checked every criterion on the official page",
+      "needs_verification": "boolean. true if any criterion needs it"
+    },
+    "criterion": {
+      "field": "social_category | family_income_inr | course_level | course | state_domicile | gender | year_of_study | institution | admission_route | marks_percent | attendance_percent | not_other_scholarship | special_circumstance | renewal_only",
+      "op": "in | not_in | <= | >= | == | manual",
+      "value": "the value compared against the persona (array for in/not_in)",
+      "persona_field": "which persona key it reads, or null for 'manual'",
+      "quote": "short exact phrase from the page",
+      "from": "URL the criterion was read from",
+      "read_on": "YYYY-MM-DD",
+      "clarity": "clear | unclear (unclear = page is ambiguous; the ranker must not hard-fail on it)",
+      "needs_verification": "boolean",
+      "persona_check": "pass | fail | unknown (unknown = persona does not state that fact)"
+    },
+    "match_result": {
+      "result": "match (all known criteria pass, no unknown hard rule) | conditional (no fail, some unknown) | no_match (a clear criterion fails) | unclear (outcome hinges on an unclear criterion)",
+      "why_you_match": "one line, at most ~110 chars, shown on the plan screen. Lists what passed, then what is still needed.",
+      "reasoning": "array of short sentences, one per decisive criterion"
+    },
+    "ranker_contract": "For each criterion: if persona_field is null or the persona value is null -> unknown. 'fail' only counts when clarity is 'clear'. Result = no_match if any clear fail; else unclear if any unclear criterion is decisive; else conditional if any unknown; else match. The ranker may recompute persona_check; the stored value is the author's expectation for tests."
+  },
+  "global_rules": [
+    {
+      "id": "nsp:one-merit-scheme",
+      "text": "From AY 2026-27 a student may apply for one merit-based scheme and one or more welfare-based schemes on NSP.",
+      "applies_to": "all NSP schemes with scheme_type 'Merit'",
+      "from": "https://scholarships.gov.in/",
+      "read_on": "2026-10-24",
+      "clarity": "clear",
+      "needs_verification": false,
+      "effect_for_persona": "PM YASASVI College and PM-USP CSSS are both Merit: he can apply for only one of them."
+    },
+    {
+      "id": "mahadbt:mahadbt2-only",
+      "text": "Fresh and renewal applications for AY 2026-27 will be accepted only through the MahaDBT 2.0 portal.",
+      "applies_to": "all MahaDBT schemes",
+      "from": "https://mahadbt.maharashtra.gov.in/",
+      "read_on": "2026-10-24",
+      "clarity": "clear",
+      "needs_verification": false,
+      "effect_for_persona": "Apply link is mahadbt2.maharashtra.gov.in. Deadlines are not on the 1.0 scheme pages."
+    }
+  ],
+  "tasks_for_owner": [
+    "Open every 'from' URL and check each criterion's quote, value and clarity. Fix anything that is wrong.",
+    "Resolve every item in unclear_rules[]: find an official statement, update clarity and value, and record the URL and read_on date. If no official statement exists, leave it 'unclear' and say so in the reasoning.",
+    "Set verified: true on a rule ONLY after you checked all its criteria yourself.",
+    "Add rules for the 2+ new schemes you add to application-kits.json (same ids).",
+    "Write 3 test personas (e.g. female B.Tech OBC Maharashtra; male B.Tech SC Karnataka; male Diploma OBC Maharashtra) and note the expected result per scheme, so Samrat can turn them into ranker unit tests."
+  ],
+  "rules": [
+    {
+      "id": "nsp:pm-yasasvi-college-obc-ebc-dnt",
+      "title": "PM YASASVI Central Sector Scheme Of Top Class Education In College For OBC, EBC And DNT Students",
+      "category": "central",
+      "source": "nsp",
+      "source_url": "https://scholarships.gov.in/public/schemeGuidelines/ApprovedmodifieddraftofTopClassCollege.pdf",
+      "read_on": "2026-10-24",
+      "scheme_type": "Merit",
+      "criteria": [
+        { "field": "social_category", "op": "in", "value": ["OBC", "EBC", "DNT"], "persona_field": "social_category", "quote": "OBC/EBC/DNT students having total annual family income", "from": "https://scholarships.gov.in/public/schemeGuidelines/ApprovedmodifieddraftofTopClassCollege.pdf", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "pass" },
+        { "field": "family_income_inr", "op": "<=", "value": 250000, "persona_field": "family_income_inr", "quote": "income from all sources up to Rs. 2.50 lakh", "from": "https://scholarships.gov.in/public/schemeGuidelines/ApprovedmodifieddraftofTopClassCollege.pdf", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "institution", "op": "manual", "value": "notified 'Top Class' institution with slots for the course", "persona_field": null, "quote": "operate in all the institutions notified by the Ministry", "from": "https://scholarships.gov.in/public/schemeGuidelines/ApprovedmodifieddraftofTopClassCollege.pdf", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": true, "persona_check": "unknown" },
+        { "field": "year_of_study", "op": "in", "value": [1, 2, 3, 4], "persona_field": "year_of_study", "quote": "balance slots may be offered to eligible students studying in 2nd, 3rd and 4th year", "from": "https://scholarships.gov.in/public/schemeGuidelines/ApprovedmodifieddraftofTopClassCollege.pdf", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "pass" },
+        { "field": "course_level", "op": "in", "value": ["UG", "PG"], "persona_field": "course_level", "quote": "for pursuing studies beyond class XIIth", "from": "https://scholarships.gov.in/public/schemeGuidelines/ApprovedmodifieddraftofTopClassCollege.pdf", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "pass" }
+      ],
+      "conflicts_with": [
+        { "id": "nsp:pm-usp-csss", "reason": "Both are NSP merit-based schemes; only one merit scheme per student (global_rules nsp:one-merit-scheme).", "from": "https://scholarships.gov.in/", "read_on": "2026-10-24" }
+      ],
+      "matches_persona": {
+        "result": "conditional",
+        "why_you_match": "OBC + B.Tech (2nd year) · needs family income ≤ ₹2.5 lakh and a notified 'Top Class' institute",
+        "reasoning": [
+          "Category OBC and UG course pass.",
+          "2nd-year students are covered only through leftover slots after 1st-year students.",
+          "Income and whether his college is notified are unknown, so the result is conditional."
+        ]
+      },
+      "verified": false,
+      "needs_verification": true
+    },
+    {
+      "id": "nsp:pm-usp-csss",
+      "title": "PM-USP – Central Sector Scheme Of Scholarship For College And University Students (CSSS)",
+      "category": "central",
+      "source": "nsp",
+      "source_url": "https://scholarships.gov.in/public/schemeGuidelines/CSSS_GUIDLINES_07022024_updated.pdf",
+      "read_on": "2026-10-24",
+      "scheme_type": "Merit",
+      "criteria": [
+        { "field": "renewal_only", "op": "manual", "value": "received the fresh award in 1st year (fresh awards use the Class XII board top-20-percentile list)", "persona_field": null, "quote": "Students who have received fresh scholarship", "from": "https://scholarships.gov.in/public/schemeGuidelines/FAQ_DOHE_CSSS.pdf", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "family_income_inr", "op": "<=", "value": 450000, "persona_field": "family_income_inr", "quote": "gross parental/family income upto ₹ 4.5 lakh", "from": "https://scholarships.gov.in/public/schemeGuidelines/CSSS_GUIDLINES_07022024_updated.pdf", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "marks_percent", "op": ">=", "value": 50, "persona_field": "last_exam_percent", "quote": "at least 50% marks in the Annual Examination", "from": "https://scholarships.gov.in/public/schemeGuidelines/CSSS_GUIDLINES_07022024_updated.pdf", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "attendance_percent", "op": ">=", "value": 75, "persona_field": null, "quote": "adequate attendance of at least 75%", "from": "https://scholarships.gov.in/public/schemeGuidelines/CSSS_GUIDLINES_07022024_updated.pdf", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "not_other_scholarship", "op": "manual", "value": "not availing other merit schemes, state scholarships, fee waiver or reimbursement", "persona_field": null, "quote": "Not availing benefit of any other merit scholarship schemes, State run scholarship schemes, fee waiver, reimbursement scheme", "from": "https://scholarships.gov.in/public/schemeGuidelines/CSSS_GUIDLINES_07022024_updated.pdf", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "course", "op": "manual", "value": "renewal allowed for B.Tech at graduation level?", "persona_field": null, "quote": "except for the students pursuing technical courses leading to degree at graduation level", "from": "https://scholarships.gov.in/public/schemeGuidelines/FAQ_DOHE_CSSS.pdf", "read_on": "2026-10-24", "clarity": "unclear", "needs_verification": true, "persona_check": "unknown" }
+      ],
+      "conflicts_with": [
+        { "id": "mahadbt:tuition-exam-fees-obc", "reason": "CSSS excludes students availing a state fee reimbursement (guideline 4(iv)).", "from": "https://scholarships.gov.in/public/schemeGuidelines/CSSS_GUIDLINES_07022024_updated.pdf", "read_on": "2026-10-24" },
+        { "id": "mahadbt:post-matric-obc", "reason": "CSSS excludes students availing a state-run scholarship (guideline 4(iv)).", "from": "https://scholarships.gov.in/public/schemeGuidelines/CSSS_GUIDLINES_07022024_updated.pdf", "read_on": "2026-10-24" },
+        { "id": "nsp:pm-yasasvi-college-obc-ebc-dnt", "reason": "Only one NSP merit-based scheme per student.", "from": "https://scholarships.gov.in/", "read_on": "2026-10-24" }
+      ],
+      "matches_persona": {
+        "result": "conditional",
+        "why_you_match": "Renewal only: if you won CSSS in 1st year · 50%+ marks, 75% attendance, no state fee reimbursement",
+        "reasoning": [
+          "A 2nd-year student cannot apply fresh; only a renewal is possible, and only if he won it in 1st year (unknown).",
+          "Taking MahaDBT OBC scholarship or freeship would disqualify him (4(iv)), so the plan must make him choose.",
+          "The FAQ's line about technical degrees conflicts with guideline section 7 (which pays B.Tech in year 4): unclear, so not a hard fail."
+        ]
+      },
+      "verified": false,
+      "needs_verification": true
+    },
+    {
+      "id": "nsp:aicte-swanath-technical-degree",
+      "title": "AICTE - Swanath Scholarship Scheme (Technical Degree)",
+      "category": "central",
+      "source": "nsp",
+      "source_url": "https://scholarships.gov.in/public/schemeGuidelines/AICTE/AICTE_3039_G.pdf",
+      "read_on": "2026-10-24",
+      "scheme_type": "Welfare",
+      "criteria": [
+        { "field": "special_circumstance", "op": "in", "value": ["orphan", "parent_died_covid19", "ward_of_martyred_armed_forces_or_capf", "parent_critical_illness_or_accident_death_or_80pct_disability"], "persona_field": null, "quote": "Orphan OR Either or both parents died due to Covid 19", "from": "https://scholarships.gov.in/public/schemeGuidelines/AICTE/AICTE_3039_G.pdf", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "family_income_inr", "op": "<=", "value": 800000, "persona_field": "family_income_inr", "quote": "should not be more than Rs. 8 lakh per annum", "from": "https://scholarships.gov.in/public/schemeGuidelines/AICTE/AICTE_3039_G.pdf", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "institution", "op": "manual", "value": "AICTE-approved institution and course, regular mode", "persona_field": null, "quote": "AICTE Approved institutions and courses at Degree/ Diploma level in regular mode", "from": "https://scholarships.gov.in/public/schemeGuidelines/AICTE/AICTE_3039_G.pdf", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "year_of_study", "op": "in", "value": [1, 2, 3, 4], "persona_field": "year_of_study", "quote": "(in 1st /2nd / 3rd /4th year)", "from": "https://scholarships.gov.in/public/schemeGuidelines/AICTE/AICTE_3039_G.pdf", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "pass" },
+        { "field": "not_other_scholarship", "op": "manual", "value": "not a recipient of any Central/State/AICTE scholarship", "persona_field": null, "quote": "should NOT be Recipient of any of the Central Govt. / State Govt. / AICTE Sponsored scholarships", "from": "https://scholarships.gov.in/public/schemeGuidelines/AICTE/AICTE_3039_G.pdf", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" }
+      ],
+      "conflicts_with": [
+        { "id": "mahadbt:post-matric-obc", "reason": "Swanath requires not receiving any State Govt. scholarship (2.0(4)).", "from": "https://scholarships.gov.in/public/schemeGuidelines/AICTE/AICTE_3039_G.pdf", "read_on": "2026-10-24" }
+      ],
+      "matches_persona": {
+        "result": "conditional",
+        "why_you_match": "B.Tech in an AICTE college, 2nd year OK · only if orphan/Covid loss/martyr's ward/critical-illness case, income ≤ ₹8 lakh",
+        "reasoning": [
+          "Course and year pass (2nd-year degree students get up to 3 years).",
+          "The scheme exists only for four hardship categories; the persona does not state any, so it stays conditional and must be shown with that caveat."
+        ]
+      },
+      "verified": false,
+      "needs_verification": true
+    },
+    {
+      "id": "mahadbt:post-matric-obc",
+      "title": "Post Matric Scholarship to OBC Students (Maharashtra)",
+      "category": "state",
+      "source": "mahadbt",
+      "source_url": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E",
+      "read_on": "2026-10-24",
+      "scheme_type": null,
+      "criteria": [
+        { "field": "social_category", "op": "in", "value": ["OBC"], "persona_field": "social_category", "quote": "Applicant should be belongs to OBC category", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "pass" },
+        { "field": "state_domicile", "op": "in", "value": ["Maharashtra"], "persona_field": "state_domicile", "quote": "Applicants must be residents of Maharashtra", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "pass" },
+        { "field": "family_income_inr", "op": "<=", "value": 250000, "persona_field": "family_income_inr", "quote": "annual Income should be less than or equal to Rs.2.50 Lac", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "admission_route", "op": "==", "value": "CAP", "persona_field": null, "quote": "come through CAP round for only professional courses", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "attendance_percent", "op": ">=", "value": 75, "persona_field": null, "quote": "75 % attendance is mandatory for current year", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "special_circumstance", "op": "manual", "value": "boys: at most 2 children of the same parents benefit", "persona_field": null, "quote": "boys applicants maximum 2 of the same parents will be eligible", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "not_other_scholarship", "op": "manual", "value": "payment stops from the date another scholarship/stipend is accepted", "persona_field": null, "quote": "from the date he /she accepts another Scholarship / stipend", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" }
+      ],
+      "conflicts_with": [
+        { "id": "nsp:pm-usp-csss", "reason": "Accepting another scholarship stops this one; CSSS also excludes state scholarships.", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E", "read_on": "2026-10-24" }
+      ],
+      "matches_persona": {
+        "result": "conditional",
+        "why_you_match": "OBC + Maharashtra + B.Tech · needs income ≤ ₹2.5 lakh, CAP admission, 75% attendance",
+        "reasoning": [
+          "Category and domicile pass.",
+          "Income, CAP admission and attendance are not stated in the persona."
+        ]
+      },
+      "verified": false,
+      "needs_verification": false
+    },
+    {
+      "id": "mahadbt:tuition-exam-fees-obc",
+      "title": "Tuition Fees and Examination Fees to OBC Students (Maharashtra freeship)",
+      "category": "state",
+      "source": "mahadbt",
+      "source_url": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63",
+      "read_on": "2026-10-24",
+      "scheme_type": null,
+      "criteria": [
+        { "field": "social_category", "op": "in", "value": ["OBC"], "persona_field": "social_category", "quote": "Applicant should be belongs to OBC category", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "pass" },
+        { "field": "state_domicile", "op": "in", "value": ["Maharashtra"], "persona_field": "state_domicile", "quote": "Applicants must be residents of Maharashtra", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "pass" },
+        { "field": "course", "op": "in", "value": ["btech", "diploma_engineering", "pharmacy", "hmct", "mba", "mca"], "persona_field": "course", "quote": "Degree – Engineering, Pharmacology, HMCT", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "pass" },
+        { "field": "admission_route", "op": "==", "value": "CAP", "persona_field": null, "quote": "For professional courses Applicant should admitted through CAP round is must", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "institution", "op": "manual", "value": "not a deemed university", "persona_field": null, "quote": "admission in Deemed University for professional courses won’t get benefit", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "family_income_inr", "op": "manual", "value": "not stated on the scheme page; documents list asks for 'Income certificate / Non creamy layer certificate'", "persona_field": "family_income_inr", "quote": "Income certificate / Non creamy layer certificate", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63", "read_on": "2026-10-24", "clarity": "unclear", "needs_verification": true, "persona_check": "unknown" }
+      ],
+      "conflicts_with": [
+        { "id": "nsp:pm-usp-csss", "reason": "CSSS excludes students availing a state fee reimbursement.", "from": "https://scholarships.gov.in/public/schemeGuidelines/CSSS_GUIDLINES_07022024_updated.pdf", "read_on": "2026-10-24" }
+      ],
+      "matches_persona": {
+        "result": "conditional",
+        "why_you_match": "OBC + Maharashtra + engineering degree · needs CAP admission (not deemed univ.); income rule to confirm",
+        "reasoning": [
+          "Category, domicile and course all pass (engineering degree is listed).",
+          "CAP admission and college type are unknown.",
+          "The page states no income ceiling; that criterion is unclear and must not hard-fail."
+        ]
+      },
+      "verified": false,
+      "needs_verification": true
+    },
+    {
+      "id": "buddy4study:hdfc-parivartan-ecss-ug",
+      "title": "Parivartan ECSS Programme for Undergraduate Students (Merit-cum-Need Based) 2026-27",
+      "category": "private",
+      "source": "buddy4study",
+      "source_url": "https://www.buddy4study.com/page/hdfc-bank-parivartans-ecss-programme",
+      "read_on": "2026-10-24",
+      "scheme_type": null,
+      "criteria": [
+        { "field": "course", "op": "in", "value": ["btech", "bcom", "bsc", "ba", "mbbs", "llb", "barch", "nursing"], "persona_field": "course", "quote": "professional courses such as B.Tech., MBBS, LLB, B.Arch., and Nursing", "from": "https://www.buddy4study.com/page/hdfc-bank-parivartans-ecss-programme", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "pass" },
+        { "field": "marks_percent", "op": ">=", "value": 55, "persona_field": "last_exam_percent", "quote": "A minimum of 55% marks in the most recent qualifying examination", "from": "https://www.buddy4study.com/page/hdfc-bank-parivartans-ecss-programme", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "family_income_inr", "op": "<=", "value": 250000, "persona_field": "family_income_inr", "quote": "annual family income from all sources must not exceed INR 2.5 lakh", "from": "https://www.buddy4study.com/page/hdfc-bank-parivartans-ecss-programme", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" }
+      ],
+      "conflicts_with": [],
+      "matches_persona": {
+        "result": "conditional",
+        "why_you_match": "B.Tech named as eligible · needs 55%+ in last exam and family income ≤ ₹2.5 lakh",
+        "reasoning": ["Course passes (B.Tech is named).", "Marks and income are unknown."]
+      },
+      "verified": false,
+      "needs_verification": false
+    },
+    {
+      "id": "buddy4study:servicescape-2026",
+      "title": "ServiceScape Scholarship 2026",
+      "category": "private",
+      "source": "buddy4study",
+      "source_url": "https://www.buddy4study.com/scholarship/servicescape-scholarship",
+      "read_on": "2026-10-24",
+      "scheme_type": null,
+      "criteria": [
+        { "field": "institution", "op": "manual", "value": "enrolled or accepted at an accredited college, university or trade school", "persona_field": null, "quote": "Students enrolled or accepted at any accredited college, university, or trade school", "from": "https://www.buddy4study.com/scholarship/servicescape-scholarship", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "pass" }
+      ],
+      "conflicts_with": [],
+      "matches_persona": {
+        "result": "match",
+        "why_you_match": "Open to any enrolled college student · essay-judged, one USD 1,000 award, closes 30 Nov",
+        "reasoning": ["The only rule is enrolment at an accredited college, which an enrolled B.Tech student meets. Selection is by essay, so it is competitive."]
+      },
+      "verified": false,
+      "needs_verification": false
+    },
+    {
+      "id": "buddy4study:tata-capital-pankh-general-ug",
+      "title": "Tata Capital Pankh Scholarship Programme for General Graduation / Polytechnic / Diploma / ITI Students (2026–27)",
+      "category": "private",
+      "source": "buddy4study",
+      "source_url": "https://www.buddy4study.com/page/the-tata-capital-pankh-scholarship-programme",
+      "read_on": "2026-10-24",
+      "scheme_type": null,
+      "criteria": [
+        { "field": "course", "op": "in", "value": ["bcom", "bsc", "ba", "diploma", "iti"], "persona_field": "course", "quote": "undergraduate degree programs (e.g., B.Com, B.Sc, B.A, etc.)", "from": "https://www.buddy4study.com/page/the-tata-capital-pankh-scholarship-programme", "read_on": "2026-10-24", "clarity": "unclear", "needs_verification": true, "persona_check": "unknown" },
+        { "field": "marks_percent", "op": ">=", "value": 60, "persona_field": "last_exam_percent", "quote": "at least 60% marks in the preceding class", "from": "https://www.buddy4study.com/page/the-tata-capital-pankh-scholarship-programme", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "family_income_inr", "op": "<=", "value": 400000, "persona_field": "family_income_inr", "quote": "Annual parental income from all sources must not exceed INR 4 lakh", "from": "https://www.buddy4study.com/page/the-tata-capital-pankh-scholarship-programme", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" }
+      ],
+      "conflicts_with": [],
+      "matches_persona": {
+        "result": "unclear",
+        "why_you_match": "Unclear: 'General Graduation' may exclude B.Tech · needs 60%+ and income ≤ ₹4 lakh · closes 26 Oct",
+        "reasoning": [
+          "The course examples are B.Com, B.Sc and B.A; B.Tech is neither named nor excluded.",
+          "Earlier editions on the same page had separate 'Professional' blocks, which hints that B.Tech is not 'General Graduation'. Not decisive."
+        ]
+      },
+      "verified": false,
+      "needs_verification": true
+    },
+    {
+      "id": "mahadbt:shahu-fee-reimbursement-ebc-ews",
+      "title": "Rajarshri Chhatrapati Shahu Maharaj Fee Reimbursement Scheme (DTE)",
+      "category": "state",
+      "source": "mahadbt",
+      "source_url": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A7F4D327BDEB7125DE0BA4AE1C51180C272281017EBEF6F7C",
+      "read_on": "2026-10-24",
+      "scheme_type": null,
+      "criteria": [
+        { "field": "social_category", "op": "in", "value": ["EBC", "EWS"], "persona_field": "social_category", "quote": "Economic Backward Class (EBC) , Economically Weaker Section (EWS)", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A7F4D327BDEB7125DE0BA4AE1C51180C272281017EBEF6F7C", "read_on": "2026-10-24", "clarity": "unclear", "needs_verification": true, "persona_check": "fail" },
+        { "field": "family_income_inr", "op": "<=", "value": 800000, "persona_field": "family_income_inr", "quote": "should not be more than 8 Lakhs", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A7F4D327BDEB7125DE0BA4AE1C51180C272281017EBEF6F7C", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "admission_route", "op": "==", "value": "CAP", "persona_field": null, "quote": "admitted through Centralized Admission Process (CAP)", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A7F4D327BDEB7125DE0BA4AE1C51180C272281017EBEF6F7C", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" }
+      ],
+      "conflicts_with": [],
+      "matches_persona": {
+        "result": "unclear",
+        "why_you_match": "Likely not for you: meant for EBC/EWS students; OBC students use the OBC freeship instead",
+        "reasoning": [
+          "The EBC/EWS target group comes from the Overview, not the numbered Eligibility list, so it is marked unclear rather than a hard fail.",
+          "Lookout's current fake run lists this as a conditional match. That is wrong per this page and should be fixed in Stage 3."
+        ]
+      },
+      "verified": false,
+      "needs_verification": true
+    },
+    {
+      "id": "mahadbt:panjabrao-deshmukh-hostel-allowance",
+      "title": "Dr Panjabrao Deshmukh Hostel Maintenance Allowance (DTE)",
+      "category": "state",
+      "source": "mahadbt",
+      "source_url": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A3D30C2CB15631E4E31F4E2AFF5E4258B33E89887D583052E",
+      "read_on": "2026-10-24",
+      "scheme_type": null,
+      "criteria": [
+        { "field": "social_category", "op": "in", "value": ["General", "SEBC"], "persona_field": "social_category", "quote": "eligible if they have taken admission under the General category and SEBC Category", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A3D30C2CB15631E4E31F4E2AFF5E4258B33E89887D583052E", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "fail" },
+        { "field": "special_circumstance", "op": "manual", "value": "child of a marginal farmer or registered labourer, else family income certificate", "persona_field": null, "quote": "certified by the competent authority, as a marginal farmers or whose parents are registered laborers", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A3D30C2CB15631E4E31F4E2AFF5E4258B33E89887D583052E", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" },
+        { "field": "family_income_inr", "op": "<=", "value": 800000, "persona_field": "family_income_inr", "quote": "should not be more than 8 Lakhs", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A3D30C2CB15631E4E31F4E2AFF5E4258B33E89887D583052E", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "unknown" }
+      ],
+      "conflicts_with": [],
+      "matches_persona": {
+        "result": "no_match",
+        "why_you_match": "Not for you: only General and SEBC category admissions are eligible",
+        "reasoning": [
+          "Clear category rule; OBC fails it.",
+          "Lookout's current fake run lists this as a conditional match. That is wrong per this page and should be fixed in Stage 3."
+        ]
+      },
+      "verified": false,
+      "needs_verification": false
+    },
+    {
+      "id": "nsp:aicte-pragati-technical-degree",
+      "title": "AICTE - Pragati Scholarship Scheme For Girl Students (Technical Degree)",
+      "category": "central",
+      "source": "nsp",
+      "source_url": "https://scholarships.gov.in/All-Scholarships",
+      "read_on": "2026-10-24",
+      "scheme_type": "Merit",
+      "criteria": [
+        { "field": "gender", "op": "in", "value": ["female"], "persona_field": "gender", "quote": "Pragati Scholarship Scheme For Girl Students", "from": "https://scholarships.gov.in/All-Scholarships", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "fail" }
+      ],
+      "conflicts_with": [],
+      "matches_persona": {
+        "result": "no_match",
+        "why_you_match": "Not for you: for girl students only",
+        "reasoning": ["The scheme name restricts it to girl students; the persona is male."]
+      },
+      "verified": false,
+      "needs_verification": false
+    },
+    {
+      "id": "nsp:pm-yasasvi-schools-obc-ebc-dnt",
+      "title": "PM YASASVI Central Sector Scheme Of Top Class Education In Schools For OBC, EBC And DNT Students",
+      "category": "central",
+      "source": "nsp",
+      "source_url": "https://scholarships.gov.in/All-Scholarships",
+      "read_on": "2026-10-24",
+      "scheme_type": "Merit",
+      "criteria": [
+        { "field": "course_level", "op": "in", "value": ["school"], "persona_field": "course_level", "quote": "Top Class Education In Schools", "from": "https://scholarships.gov.in/All-Scholarships", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "fail" }
+      ],
+      "conflicts_with": [],
+      "matches_persona": {
+        "result": "no_match",
+        "why_you_match": "Not for you: school students only (the college version is the one that applies)",
+        "reasoning": ["Same OBC/EBC/DNT target group, but the scheme is for school education; the persona is in college."]
+      },
+      "verified": false,
+      "needs_verification": false
+    },
+    {
+      "id": "other:reliance-foundation-ug-2026",
+      "title": "Reliance Foundation Undergraduate Scholarships 2026-27",
+      "category": "private",
+      "source": "other",
+      "source_url": "https://www.scholarships.reliancefoundation.org/UG_Scholarship",
+      "read_on": "2026-10-24",
+      "scheme_type": null,
+      "criteria": [
+        { "field": "year_of_study", "op": "in", "value": [1], "persona_field": "year_of_study", "quote": "Currently enrolled in the 1st year (academic year 2026-27)", "from": "https://www.scholarships.reliancefoundation.org/UG_Scholarship", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": false, "persona_check": "fail" }
+      ],
+      "conflicts_with": [],
+      "matches_persona": {
+        "result": "no_match",
+        "why_you_match": "Not for you: 1st-year students only, and 2026-27 applications are closed",
+        "reasoning": [
+          "The page states first-year only; the persona is in 2nd year.",
+          "This source was dropped in recon (no date on the page). It is kept here only as a worked 'why not' example."
+        ]
+      },
+      "verified": false,
+      "needs_verification": false
+    },
+    {
+      "id": "vidyasaarathi:jsw-udaan-renewal-odisha-btech",
+      "title": "JSW UDAAN Renewal Scholarship for Odisha Students pursuing Fulltime B.E./B.Tech (2026-2027)",
+      "category": "private",
+      "source": "vidyasaarathi",
+      "source_url": "https://www.vidyasaarathi.co.in/Vidyasaarathi/scholarship",
+      "read_on": "2026-10-24",
+      "scheme_type": null,
+      "criteria": [
+        { "field": "state_domicile", "op": "in", "value": ["Odisha"], "persona_field": "state_domicile", "quote": "for Odisha Students pursuing Fulltime B.E./B.Tech", "from": "https://www.vidyasaarathi.co.in/Vidyasaarathi/scholarship", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": true, "persona_check": "fail" },
+        { "field": "renewal_only", "op": "manual", "value": "renewal of an existing award", "persona_field": null, "quote": "Renewal Scholarship", "from": "https://www.vidyasaarathi.co.in/Vidyasaarathi/scholarship", "read_on": "2026-10-24", "clarity": "clear", "needs_verification": true, "persona_check": "unknown" }
+      ],
+      "conflicts_with": [],
+      "matches_persona": {
+        "result": "no_match",
+        "why_you_match": "Not for you: for Odisha students only",
+        "reasoning": [
+          "Read from a TinyFish Search snippet only (the listing page renders 'Currently No Schemes are Available'); end date shown in the snippet was 30/10/2026. Open the scheme page to confirm.",
+          "No Vidyasaarathi scheme open to a Maharashtra B.Tech student was found on 2026-10-24."
+        ]
+      },
+      "verified": false,
+      "needs_verification": true
+    }
+  ],
+  "unclear_rules": [
+    { "rule_id": "nsp:pm-usp-csss", "field": "course", "issue": "FAQ excludes 'technical courses leading to degree at graduation level' from renewal; guideline section 7 pays B.Tech in years 1-4.", "from": "https://scholarships.gov.in/public/schemeGuidelines/FAQ_DOHE_CSSS.pdf" },
+    { "rule_id": "mahadbt:tuition-exam-fees-obc", "field": "family_income_inr", "issue": "No income ceiling on the scheme page; documents ask for income or non-creamy layer certificate.", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63" },
+    { "rule_id": "buddy4study:tata-capital-pankh-general-ug", "field": "course", "issue": "'General Graduation' with B.Com/B.Sc/B.A examples; B.Tech neither named nor excluded.", "from": "https://www.buddy4study.com/page/the-tata-capital-pankh-scholarship-programme" },
+    { "rule_id": "mahadbt:shahu-fee-reimbursement-ebc-ews", "field": "social_category", "issue": "EBC/EWS target appears only in the Overview, not in the numbered Eligibility list.", "from": "https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=E9DDFA703C38E51A7F4D327BDEB7125DE0BA4AE1C51180C272281017EBEF6F7C" }
+  ]
+}

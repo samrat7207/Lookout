@@ -4,7 +4,6 @@ HackIIITD 2026 · TinyFish track · 24-hour build
 
 A low-poly 3D city where each TinyFish web agent is a little character and each source (scholarship portals, foundation listings, hackathon boards) is a building. A student enters **course, state and category** once. The agents walk off to the sources, read them live with TinyFish, and bring back findings. Town Hall turns those findings into **one dated, sourced plan**: scholarships, hackathons and events in a single list, sorted by deadline. Each scholarship comes with a read-only **Application Kit** (documents, prefilled fields, steps, deadline, source link).
 
-> Headline for the demo (checked live on 2026-10-24): most NSP schemes close for students on **31-10-2026**. That is 7 days from the start of the hackathon.
 
 > **Lookout never submits forms, and never asks for, enters or stores passwords, OTPs or Aadhaar numbers.** It reads public pages and prefills a checklist. The student applies on the official portal.
 

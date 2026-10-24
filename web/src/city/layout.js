@@ -11,14 +11,6 @@ export const BLOCK_CENTERS = [-14, 0, 14];
 export const KERB_H = 0.16;
 export const LOT_TOP = 0.2; // ground level inside a block
 export const ROAD_TOP = 0.05;
-export const LANE_OFFSET = 0.75;
-
-/** Traffic loops: road-centre rounded rectangles (inner grid ring and outer ring). */
-export const LOOPS = [
-  { half: 7, radius: 2.2, perLane: 3, speed: 2.3 },
-  { half: 21, radius: 2.4, perLane: 6, speed: 2.8 },
-];
-
 export const LANDMARKS = [
   {
     id: 'nsp',

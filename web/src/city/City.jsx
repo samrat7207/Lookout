@@ -4,9 +4,10 @@ import { OrbitControls, Stats } from '@react-three/drei';
 import * as THREE from 'three';
 import { buildCity } from './buildCity.js';
 import { InstancedBatch } from './InstancedBatch.jsx';
-import { Traffic } from './Traffic.jsx';
 import { LandmarkLabels, Landmarks } from './Landmarks.jsx';
 import { Beacon } from './Beacon.jsx';
+import { Citizens } from './Citizens.jsx';
+import { AgentTags, Agents, BuildingEffects } from './Agents.jsx';
 
 const PAN_LIMIT = 16;
 
@@ -120,8 +121,9 @@ function RenderStats() {
   return <Stats />;
 }
 
-export default function City() {
-  const { batch, parked } = useMemo(buildCity, []);
+/** The 3D city plus its DOM overlays. All run-driven visuals come from `state` (the reducer). */
+export default function City({ state, playback, selected, onSelect }) {
+  const { batch } = useMemo(buildCity, []);
   const showStats = useMemo(() => new URLSearchParams(window.location.search).has('stats'), []);
   const [hover, setHover] = useState(null);
 
@@ -137,14 +139,17 @@ export default function City() {
       >
         <Lights />
         <InstancedBatch batch={batch} />
-        <Traffic parked={parked} />
+        <Citizens />
         <Beacon />
         <TileShadow />
-        <Landmarks hover={hover} setHover={setHover} />
+        <BuildingEffects state={state} playback={playback} />
+        <Agents state={state} playback={playback} selected={selected} onSelect={onSelect} />
+        <Landmarks hover={hover} setHover={setHover} onSelect={onSelect} />
         <CameraRig />
         {showStats && <RenderStats />}
       </Canvas>
-      <LandmarkLabels hover={hover} />
+      <LandmarkLabels hover={hover} buildings={state.buildings} selected={selected} onSelect={onSelect} />
+      <AgentTags state={state} playback={playback} selected={selected} onSelect={onSelect} />
     </>
   );
 }

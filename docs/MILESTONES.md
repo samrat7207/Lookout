@@ -15,54 +15,65 @@ Time budget for 24 h: S1 about 4 h → S2 about 4 h → S3 about 5 h → S4 abou
 
 ---
 
-## Stage 1: The low-poly city (frontend only, about 4 h)
+## Stage 1: The low-poly city (frontend only, about 4 h) ✅ done
 
 **Goal:** a polished, standalone 3D city in `web/` that runs with `npm run dev`. It makes **no backend calls and no TinyFish calls, and has no data**. `server/` is not touched.
 
 ### Tasks
 1. Scaffold `web/` with Vite, React, three, @react-three/fiber and @react-three/drei (package `lookout-web`).
-2. Isometric low-poly city block on a flat grey base (CITY_DESIGN §1): roads with lane markings and crosswalks, sidewalks, trees, small plazas, parked and moving cars and trucks. Cheerful, clean and toy-like. Procedural from boxes, cylinders and cones, with flat shading, original designs, and no external assets.
+2. Isometric low-poly city block on a flat grey base (CITY_DESIGN §1): roads with lane markings and crosswalks, sidewalks, trees, small plazas (vehicles were removed in Stage 2; citizens walk the sidewalks instead). Cheerful, clean and toy-like. Procedural from boxes, cylinders and cones, with flat shading, original designs, and no external assets.
 3. Landmarks, each labelled with its name shown on hover (CITY_DESIGN §2): **Central Scholarships Hall (NSP)**, **State Scholarships** (generic, any state), **Private & Foundation Scholarships**, **Watchtower** (tall, with a beacon), **Town Hall** (plan and briefing), and the **Opportunities district** (3 small buildings). Everything else is filler. No portal is named in the UI except NSP.
 4. Buildings have window details and rooftop elements.
-5. An orthographic isometric camera with orbit, zoom and pan limits. Soft lighting and shadows. Cars loop on the roads.
+5. An orthographic isometric camera with orbit, zoom and pan limits. Soft lighting and shadows.
 6. Performance: instancing for all repeated meshes, low draw calls, and an FPS/draw-call readout behind `?stats`.
 
 ### Acceptance
 - `cd web && npm install && npm run dev` shows the city. DevTools → Network shows no `/api` calls and no other network calls after load.
 - All 6 landmarks are labelled, and hovering one shows its name.
 - It holds a stable frame rate (target 60 fps at 1080p on an RTX 2050 laptop), with draw calls in the tens, not hundreds (`?stats`).
-- It looks polished: no z-fighting, no floating objects, cars stay in their lanes.
+- It looks polished: no z-fighting, no floating objects.
 
 **Commit:** `Stage 1: low-poly isometric city (standalone web app)`
 
 ---
 
-## Stage 2: City driven by the event stream (about 4 h)
+## Stage 2: City driven by the event stream ✅ done
 
-**Goal:** the city animates from the existing SSE stream. It uses the scripted **fake run** first, and characters move only in response to events.
+**Goal:** the city animates from the existing SSE stream. It uses the recorded **fake run** first, and characters move only in response to events.
 
-### Already done ✅ (server side)
+### Done ✅ (server side, before Stage 2)
 - ✅ `bus.js`: per-run emitter with seq, ts and t stamping, and a history buffer.
 - ✅ `sse.js`: a 15 s heartbeat, history replay on connect, and **`Last-Event-ID`** resume without duplicates (tested).
 - ✅ `recorder.js`: JSONL to `recordings/<runId>.jsonl`.
 - ✅ `fakeAgents.js`: a **scripted fake run** from real recon data (EVENT_SCHEMA v2), plus `recordings/fake-run.jsonl`.
-- ✅ Routes: `POST /api/runs` (`mode: "fake"`), `GET /api/runs/:id/events`, `GET /api/health`.
+- ✅ Routes: `POST /api/runs` (`mode: "fake"` or `"mock"`), `GET /api/runs/:id/events`, `GET /api/health`.
 
-### Tasks
-1. Vite proxy: `/api` → `http://localhost:8787`.
-2. `state/reducer.js` (pure) plus a unit test that feeds `fake-run.jsonl` and checks the final state.
-3. `state/useRunStream.js`: EventSource wiring, reconnect, and ignoring unknown kinds.
-4. A minimal "Run (fake)" button, so this stage needs no profile form yet.
-5. Characters (CITY_DESIGN §3): spawn at Town Hall, walk along the roads to their building, working wiggle, found glow, error puff, return.
-6. Speech bubbles with a queue. Building busy states and tool icons.
-7. Map the event `building` IDs to landmarks: `nsp` → Central Scholarships Hall, `mahadbt` → State Scholarships, `foundations` → Private & Foundation, `watchtower`, `townhall`, `opportunities`.
+### Done ✅ (Stage 2)
+- ✅ Cleanup: all cars and road vehicles removed (roads kept). Ambient **citizens** instead (`city/Citizens.jsx`): about 50 pastel low-poly people on the sidewalks who cross at the crosswalks, turn at corners and pause. Two instanced meshes, decoration only, never event driven.
+- ✅ Fake data fixed for the sample student (`fake/reconData.js`): Shahu fee reimbursement (EBC/EWS) and Panjabrao hostel allowance (General/SEBC) are no longer matches but "skipped" lines. PM YASASVI and the MahaDBT OBC schemes are conditional (income, institute and CAP admission are unknown). Uncertain rules say "unclear", and MahaDBT deadlines stay `null`. The plan carries **`conflicts`** (`rank/conflicts.js`): PM YASASVI vs CSSS (one NSP merit scheme), and CSSS vs a state fee reimbursement. The run shows the real recon failure (**MahaDBT 2.0 `proxy_error`**, retried once, then given up), honestly.
+- ✅ Replay control: `POST/GET /api/runs/:id/control` (`{ paused, speed }`, mock runs only). Replays stamp recording time as `t`, so pausing and speed don't skew it (tested).
+- ✅ Vite proxy: `/api` → `http://localhost:8787`.
+- ✅ `state/reducer.js` (pure) plus 5 unit tests (`web/test/reducer.test.js`): the full `fake-run.jsonl` final picture, duplicate/overlap safety, error → retry, walking/return targets, unknown kinds and a new runId.
+- ✅ `state/useRunStream.js`: EventSource, `Last-Event-ID` resume (the reducer also drops duplicate seq), unknown kinds ignored, and the runId kept in sessionStorage so a reload resumes the same run.
+- ✅ Run bar: **Play recorded run**, pause/play, speed 1×/2×/4×, **Restart run**, plus run state, sources done / total and elapsed time.
+- ✅ Agent characters (`city/Agents.jsx`): bigger than citizens, a role colour, a name tag with status (idle, walking, working, done, failed) and a ground ring in the status colour. They spawn at Town Hall, walk the roads (`city/paths.js`) to their building, wiggle while working, show speech bubbles for findings, and walk back. Everything comes from `agent.*` events.
+- ✅ Buildings: a spinning progress ring and sparkles while busy, and a status chip under the label (fetching…, ✓ N found, "Source trouble · retrying ↻", "1 source failed").
+- ✅ Failures: a red character with a "↻" retry marker, a red building ring and chip, red log rows, and failed calls listed in the building card with their message and retry count.
+- ✅ Event log panel (collapsible, last 40 events with the source name) and side cards for buildings and characters (status, last event, URL, calls at that source).
+- ✅ Performance: about 60 draw calls including shadows with a finished run, and about 4.4 ms per frame at 1920×912 on an integrated GPU.
 
-### Acceptance
-- With the server running, press Run (fake). Characters walk to their landmarks, light up, show bubbles, and return.
-- Reloading mid-run resumes the same picture (history replay).
-- The same JSONL always gives the same final picture. No console errors, and the frame rate matches Stage 1.
+### Not done in Stage 2 (moved on)
+- The CITY_DESIGN bubble queue ("+N more") is simplified to "latest bubble wins".
+- Tool icons are shown in the DOM status chip, not as floating 3D icons.
+- The plan, countdown and kits arrive in the stream and the log, but have no UI yet (Stage 4).
+- Live runs: the button replays `fake-run.jsonl` only. Live mode is Stage 3, and the LIVE / MOCK toggle is Stage 6.
 
-**Commit:** `Stage 2: characters and bubbles driven by the SSE event stream`
+### Acceptance (checked)
+- Server running, press Play recorded run: characters walk to their landmarks, work, show bubbles, fail and retry where the recording says so, and return. ✅
+- Reloading mid-run resumes the same picture (history replay). ✅
+- The same JSONL always gives the same final picture (reducer test). No app console errors. ✅
+
+**Commit:** `Stage 2: event-driven agent characters, replay controls, event log and side cards`
 
 ---
 

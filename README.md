@@ -10,7 +10,7 @@ A low-poly 3D city where each TinyFish web agent is a little character and each 
 
 ## Status
 
-Built in 6 stages ([docs/MILESTONES.md](docs/MILESTONES.md)). **Stage 1 (low-poly city, `web/`) is in progress.** The server pieces done so far are the event bus, the SSE stream with `Last-Event-ID`, the JSONL recorder, the scripted fake run, mock replay, the NSP parser, the TinyFish client skeleton, the plan sorter and the kit builder.
+Built in 6 stages ([docs/MILESTONES.md](docs/MILESTONES.md)). **Stages 1 and 2 are done:** the low-poly city with walking citizens, and agent characters driven only by the SSE event stream (a recorded fake run replayed through the server, with play/pause, 1×/2×/4× speed, restart, an event log and click-for-details cards). Next is Stage 3 (real TinyFish data), which needs the API key. Server pieces already done: the event bus, the SSE stream with `Last-Event-ID`, the JSONL recorder, the scripted fake run, mock replay with pause and speed control, the NSP parser, the TinyFish client skeleton, the plan sorter with conflict warnings, and the kit builder.
 
 ## Team
 
@@ -39,22 +39,32 @@ Samrat Kunte (lead: city, backend, integration), Aman Kumar (Application Kit dat
 
 ## Run
 
-City (Stage 1, standalone, no backend needed):
+Two terminals:
 
 ```sh
+# 1. server (event stream, fake run, replay)
+cd server
+npm install
+npm start                # http://localhost:8787
+
+# 2. city
 cd web
 npm install
 npm run dev              # http://localhost:5173  (add ?stats for FPS and draw calls)
 ```
 
-Server (event stream, fake run, mock replay):
+Open http://localhost:5173 and press **Play recorded run**. The server replays `recordings/fake-run.jsonl` (real recon data, no live calls) and the agents walk, work, find, fail and retry from those events. Use Pause, 1×/2×/4× and Restart run in the top bar. Click any building or character for its status, last event and URL. Reloading the page mid-run picks the same run back up. Without the server, the city still loads, but the button reports that it cannot start a run.
+
+Tests:
 
 ```sh
-cd server
-npm install
-npm test                 # parser + bus tests (node:test)
-npm start                # http://localhost:8787
-# in another shell:
-curl -s -X POST localhost:8787/api/runs -H 'Content-Type: application/json' -d '{"mode":"fake"}'
+cd server && npm test    # parser, bus, SSE resume, replay control, fake run (19)
+cd web && npm test       # event -> character state reducer (5)
+```
+
+Raw stream, without the city:
+
+```sh
+curl -s -X POST localhost:8787/api/runs -H 'Content-Type: application/json' -d '{"mode":"mock","recording":"fake-run"}'
 curl -N localhost:8787/api/runs/<runId>/events
 ```

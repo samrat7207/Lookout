@@ -5,7 +5,7 @@ import { streamRun } from './sse.js';
 import { recordRun } from './recorder.js';
 import { runFake } from './fakeAgents.js';
 import { SAMPLE_STUDENT } from './fake/reconData.js';
-import { listRecordings, recordingPath, replayRecording } from './replay.js';
+import { createControl, listRecordings, recordingPath, replayRecording } from './replay.js';
 import { hasApiKey } from './tinyfish/client.js';
 
 function defaultRecording() {
@@ -20,8 +20,14 @@ function defaultRecording() {
 export const starters = {
   fake: (run, body) => runFake(run, { profile: { ...SAMPLE_STUDENT, ...body.profile }, pace: body.pace }),
   mock: (run, body) =>
-    replayRecording(run, recordingPath(body.recording ?? defaultRecording()), { speed: Number(body.speed) || 1 }),
+    replayRecording(run, recordingPath(body.recording ?? defaultRecording()), { control: run.control }),
 };
+
+const MAX_SPEED = 16;
+function parseSpeed(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 && n <= MAX_SPEED ? n : undefined;
+}
 
 export function createApp({ record = true } = {}) {
   const app = express();
@@ -43,6 +49,7 @@ export function createApp({ record = true } = {}) {
     if (!start) return res.status(400).json({ error: `unknown mode "${mode}"`, modes: Object.keys(starters) });
 
     const run = createRun({ replay: mode === 'mock' });
+    if (mode === 'mock') run.control = createControl({ speed: parseSpeed(body.speed) ?? 1 });
     if (record && mode !== 'mock') recordRun(run).catch((err) => console.error('recorder:', err.message));
 
     Promise.resolve()
@@ -53,7 +60,28 @@ export function createApp({ record = true } = {}) {
       })
       .finally(() => run.close());
 
-    res.status(201).json({ runId: run.id });
+    res.status(201).json({ runId: run.id, ...(run.control && { control: run.control }) });
+  });
+
+  // Play/pause and speed for replays (mock mode). Live and fake runs cannot be paused.
+  app.get('/api/runs/:runId/control', (req, res) => {
+    const run = getRun(req.params.runId);
+    if (!run) return res.status(404).json({ error: 'run not found' });
+    res.json({ control: run.control ?? null, closed: run.closed });
+  });
+
+  app.post('/api/runs/:runId/control', (req, res) => {
+    const run = getRun(req.params.runId);
+    if (!run) return res.status(404).json({ error: 'run not found' });
+    if (!run.control) return res.status(409).json({ error: 'only replays (mode "mock") can be paused or sped up' });
+    const { paused, speed } = req.body ?? {};
+    if (speed !== undefined) {
+      const s = parseSpeed(speed);
+      if (s === undefined) return res.status(400).json({ error: `speed must be a number in (0, ${MAX_SPEED}]` });
+      run.control.speed = s;
+    }
+    if (paused !== undefined) run.control.paused = Boolean(paused);
+    res.json({ control: run.control, closed: run.closed });
   });
 
   app.get('/api/recordings', async (_req, res) => {

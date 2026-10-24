@@ -12,7 +12,7 @@ v2 changes from v1: **Finding** is replaced by **Opportunity** (it covers schola
   "seq": 17,                       // per-run, starts at 1, strictly increasing
   "runId": "run_2026-10-24T10-15-03_ab12",
   "ts": "2026-10-24T10:15:09.412Z",
-  "t": 6412,                       // ms since run.started (used by replay timing)
+  "t": 6412,                       // ms since run.started (used by replay timing); replays stamp recording time, so pauses and speed don't change it
   "kind": "agent.found",           // event kind (not the same thing as Opportunity.kind)
   "agentId": "nsp-scout",          // optional for run-level events
   "building": "nsp",               // see IDs
@@ -37,7 +37,7 @@ IDs:
 | `agent.working` | A TinyFish call starts | `{ tool: "search"|"fetch"|"agent"|"monitor", target: url or query, label: "Fetch All-Scholarships" }` |
 | `agent.progress` | Sub-step or Agent API PROGRESS | `{ text, tool?, tinyfishRunId? }` |
 | `agent.found` | A useful fact is extracted | **Opportunity** (below), or a **Note** `{ note: true, text, sourceUrl, bubble }` for facts that are not an opportunity (e.g. the MahaDBT 2.0 notice) |
-| `agent.error` | A TinyFish call or parse failed (not fatal) | `{ tool, code, message, retrying: bool, requestId? }` |
+| `agent.error` | A TinyFish call or parse failed (not fatal) | `{ tool, code, message, retrying: bool, target?, requestId? }`. `target` is the URL that failed; without it the city blames the agent's last `agent.working` target. `retrying: false` means that source is given up for this run (shown red). |
 | `agent.done` | The agent has finished its job | `{ findings: n, durationMs }` |
 | `agent.returning` | The agent walks back to Town Hall | `{ to: "townhall" }` |
 | `plan.updated` | The ranker has re-run with new findings | **Plan** (below) |
@@ -163,7 +163,11 @@ Rules:
   "items": [PlanItem],        // ALL kinds merged, sorted by deadline ascending; deadline null last
   "missed": [PlanItem],       // deadline < today
   "counts": { "scholarship": 7, "hackathon": 5, "event": 0 },
-  "notes": ["MahaDBT: AY 2026-27 applications only via MahaDBT 2.0 (mahadbt2.maharashtra.gov.in)"]
+  "notes": ["MahaDBT: AY 2026-27 applications only via MahaDBT 2.0 (mahadbt2.maharashtra.gov.in)"],
+  "conflicts": [              // schemes that cannot be held together (server/src/rank/conflicts.js)
+    { "id": "nsp-one-merit-scheme", "ids": ["nsp:pm-yasasvi-college-obc-ebc-dnt", "nsp:pm-usp-csss"],
+      "text": "… you can apply for only one merit scheme on NSP, so pick one.", "sourceUrl": "https://scholarships.gov.in/" }
+  ]
 }
 ```
 

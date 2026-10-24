@@ -2,6 +2,8 @@
 // by deadline (EVENT_SCHEMA v2 Plan). M2 adds the keyword eligibility rules (rules.js);
 // here eligibility strength comes from the scout's matchedOn / conditional flags.
 
+import { findConflicts } from './conflicts.js';
+
 // Lowest possible score for a scout-matched item is 35 (conditional, no date, no parsed
 // date source); the cutoff drops only weaker keyword-only matches from rules.js (M2).
 export const MIN_SCORE = 35;
@@ -89,5 +91,6 @@ export function buildPlan(opportunities, { today, headline = null, notes = [], k
     missed,
     counts,
     notes,
+    conflicts: findConflicts(items),
   };
 }

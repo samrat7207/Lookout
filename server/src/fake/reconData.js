@@ -32,7 +32,7 @@ export const nsp = [
     deadline: '2026-10-31',
     deadlineLabel: 'Student application closes',
     sourceUrl: NSP_ALL,
-    matchReason: 'OBC + B.Tech (college)',
+    matchReason: 'OBC + B.Tech · only if family income ≤ ₹2.5 lakh and your college is a notified "Top Class" institute (2nd year: leftover slots only)',
     source: 'nsp',
     dateSource: 'parsed',
     evidence: 'Student Application Open till : 31-10-2026',
@@ -40,7 +40,7 @@ export const nsp = [
     bubble: 'PM YASASVI (OBC, college): closes 31 Oct!',
     via: 'fetch',
     cached: false,
-    scholarship: { portal: 'nsp', schemeType: 'Merit', openFrom: '2026-06-01', verificationTill: '2026-11-15', conditional: false },
+    scholarship: { portal: 'nsp', schemeType: 'Merit', openFrom: '2026-06-01', verificationTill: '2026-11-15', conditional: true },
   },
   {
     id: 'nsp:pm-usp-csss',
@@ -49,7 +49,7 @@ export const nsp = [
     deadline: '2026-10-31',
     deadlineLabel: 'Student application closes',
     sourceUrl: NSP_ALL,
-    matchReason: 'College student, merit scheme (renewals only on NSP right now)',
+    matchReason: 'Renewal only: a 2nd-year student can apply only if he won CSSS in 1st year · income ≤ ₹4.5 lakh, no state fee reimbursement',
     source: 'nsp',
     dateSource: 'parsed',
     evidence: 'Student Application Open till (for Renewal): 31-10-2026',
@@ -66,7 +66,7 @@ export const nsp = [
     deadline: '2026-10-31',
     deadlineLabel: 'Student application closes',
     sourceUrl: NSP_ALL,
-    matchReason: 'B.Tech (technical degree). Only for orphans and wards of martyred armed forces personnel',
+    matchReason: 'B.Tech in an AICTE college · only for orphans, Covid-bereaved, wards of martyred armed forces personnel or critical-illness cases; income ≤ ₹8 lakh',
     source: 'nsp',
     dateSource: 'parsed',
     evidence: 'Student Application Open till : 31-10-2026',
@@ -85,30 +85,65 @@ export const MAHADBT_NOTE = {
   bubble: 'AY 2026-27: apply on MahaDBT 2.0 only',
 };
 
-const mahadbtScheme = (slug, title, matchReason, conditional = false) => ({
+const mahadbtScheme = ({ slug, title, matchReason, url, matchedOn, conditional = true }) => ({
   id: `mahadbt:${slug}`,
   kind: 'scholarship',
   title,
-  deadline: null,
+  deadline: null, // MahaDBT scheme pages publish no deadline; never invent one
   deadlineLabel: 'Not published (apply on MahaDBT 2.0)',
-  sourceUrl: MAHADBT,
+  sourceUrl: url,
   matchReason,
   source: 'mahadbt',
   dateSource: 'none',
   evidence: title,
-  matchedOn: ['category=OBC', 'state=Maharashtra'],
+  matchedOn,
   bubble: `${title.slice(0, 44)}…`,
   via: 'fetch',
   cached: false,
   scholarship: { portal: 'mahadbt2', schemeType: null, openFrom: null, verificationTill: null, conditional },
 });
 
+const SCHEME_PAGE = 'https://mahadbt.maharashtra.gov.in/SchemeData/SchemeData?str=';
+
+// Both stay conditional: income, CAP admission and attendance are not in the profile.
 export const mahadbt = [
-  mahadbtScheme('post-matric-obc', 'Post Matric Scholarship to OBC Students', 'OBC + Maharashtra + post-matric course'),
-  mahadbtScheme('tuition-exam-fees-obc', 'Tuition Fees and Examination Fees to OBC Students', 'OBC + Maharashtra'),
-  mahadbtScheme('shahu-fee-reimbursement', 'Rajarshri Chhatrapati Shahu Maharaj Fee Reimbursement Scheme', 'Maharashtra + professional course (income limit applies)', true),
-  mahadbtScheme('panjabrao-hostel', 'Dr Panjabrao Deshmukh Hostel Maintenance Allowance', 'Maharashtra + professional course (only if living in a hostel)', true),
+  mahadbtScheme({
+    slug: 'post-matric-obc',
+    title: 'Post Matric Scholarship to OBC Students',
+    matchReason: 'OBC + Maharashtra + B.Tech · needs family income ≤ ₹2.5 lakh, CAP admission and 75% attendance',
+    url: `${SCHEME_PAGE}E9DDFA703C38E51AB02E984835E89FEFDB316E301CE6A991F41C5D42B01A7D7E`,
+    matchedOn: ['category=OBC', 'state=Maharashtra', 'course=btech'],
+  }),
+  mahadbtScheme({
+    slug: 'tuition-exam-fees-obc',
+    title: 'Tuition Fees and Examination Fees to OBC Students',
+    matchReason: 'OBC + Maharashtra + engineering degree · needs CAP admission (not a deemed university); income rule unclear (the page states none)',
+    url: `${SCHEME_PAGE}E9DDFA703C38E51A19A7691F3B40AD4EE0F3DDA5DE324AC54819922BB3D36B63`,
+    matchedOn: ['category=OBC', 'state=Maharashtra', 'course=btech'],
+  }),
 ];
+
+// Read on the same scheme pages but NOT a match for an OBC student; the fake run
+// shows them as honest "skipped" lines instead of listing them in the plan.
+export const MAHADBT_SKIPPED = [
+  {
+    title: 'Rajarshri Chhatrapati Shahu Maharaj Fee Reimbursement Scheme',
+    reason: 'meant for EBC/EWS students; OBC students use the OBC schemes (unclear, not a hard fail)',
+    sourceUrl: `${SCHEME_PAGE}E9DDFA703C38E51A7F4D327BDEB7125DE0BA4AE1C51180C272281017EBEF6F7C`,
+  },
+  {
+    title: 'Dr Panjabrao Deshmukh Hostel Maintenance Allowance',
+    reason: 'only General and SEBC category admissions are eligible',
+    sourceUrl: `${SCHEME_PAGE}E9DDFA703C38E51A3D30C2CB15631E4E31F4E2AFF5E4258B33E89887D583052E`,
+  },
+];
+
+// MahaDBT 2.0 returned proxy_error twice in the 2026-10-24 recon (RECON_FINDINGS).
+export const MAHADBT2_FAILURE = {
+  url: 'https://mahadbt2.maharashtra.gov.in/',
+  code: 'proxy_error',
+  message: 'MahaDBT 2.0 did not load through the TinyFish proxy (same as in recon)',
+};
 
 export const foundations = [
   {
@@ -118,7 +153,7 @@ export const foundations = [
     deadline: '2026-10-31',
     deadlineLabel: 'Application closes',
     sourceUrl: 'https://www.buddy4study.com/page/hdfc-bank-parivartans-ecss-programme',
-    matchReason: 'UG professional course (B.Tech named), 55%+ marks, family income ≤ ₹2.5 lakh',
+    matchReason: 'B.Tech named as eligible · needs 55%+ in the last exam and family income ≤ ₹2.5 lakh',
     source: 'buddy4study',
     dateSource: 'parsed',
     evidence: 'EligibilityDeadline Date: 31-Oct-2026',
@@ -133,7 +168,7 @@ export const foundations = [
 // Seen but not matched for this persona, kept here so the fake run can show an honest "skipped".
 export const FOUNDATIONS_SKIPPED = {
   title: 'Tata Capital Pankh Scholarship Programme for General Graduation / Polytechnic / Diploma / ITI Students (2026–27)',
-  reason: 'General graduation only; B.Tech is a professional degree',
+  reason: 'unclear: "General Graduation" names B.Com, B.Sc and B.A, and B.Tech is neither named nor excluded',
   sourceUrl: 'https://www.buddy4study.com/page/the-tata-capital-pankh-scholarship-programme',
 };
 

@@ -15,11 +15,11 @@ An isometric diorama: one city block grid on a flat grey base (48×48), shown as
           Scholarships                                 (3 small buildings)
 ```
 - **Roads:** centre lines at x, z = ±7 (inner grid) and ±21 (ring). Asphalt with dashed centre lines, crosswalk stripes at the intersections, and kerbed sidewalks around every block.
-- **Traffic:** cars and trucks loop on the inner and outer rings, **keep-left** (Indian roads), with rounded turns. Parked cars line the spoke roads.
+- **No vehicles** (removed in Stage 2). **Citizens** walk instead: about 50 small pastel people (capsule body, sphere head) on the sidewalks. They cross the inner roads at the crosswalks, turn at block corners and pause now and then. They are decoration only and are drawn as two instanced meshes (`Citizens.jsx`).
 - **Filler:** apartment blocks, shops with awnings, parks with trees, benches, lamp posts and a pond. Every building gets window grids and rooftop details (AC units, water tanks, solar panels, antennas, stair huts).
 - **Camera:** orthographic isometric view from `[1, 1, 1]`-ish. `OrbitControls` with polar limits (roughly 30° to 65°), zoom limits, and pan clamped to the base. The initial zoom fits the viewport.
 - **Lights:** a hemisphere light plus one warm directional sun with soft PCF shadows (2048 map) covering the base.
-- **Performance:** every repeated primitive (boxes, cylinders, cones, windows, trees, vehicle parts) is drawn with **instanced meshes** that have per-instance colours, which keeps draw calls in the tens. `?stats` shows FPS and draw calls.
+- **Performance:** every repeated primitive (boxes, cylinders, cones, windows, trees, citizens) is drawn with **instanced meshes** that have per-instance colours, which keeps draw calls in the tens. `?stats` shows FPS and draw calls.
 
 ## 2. Landmarks
 
@@ -44,12 +44,12 @@ Signs use drei `<Html>` labels (DOM, so there are no font assets).
 
 ## 3. Characters
 
-Built from simple shapes: a body (box 0.5×0.7×0.35), a head (box 0.4), and a hat (cone) in the agent's colour. Total height is about 1.3.
+Built from simple shapes and merged into one vertex-coloured mesh per agent: a capsule body in the role colour, a backpack, a sphere head and a cone hat with a brim. Total height is about 1.6, more than twice a citizen, with a ground ring in the status colour and a DOM name tag (name + status). Agents walk the inner roads between Town Hall and their landmark (`paths.js`).
 
 | Agent | Hat colour |
 |---|---|
 | nsp-scout | `#4E79A7` blue |
-| mahadbt-scout | `#E15759` red |
+| mahadbt-scout | `#F28E2B` saffron (red is kept for failures) |
 | watchman | `#76B7B2` teal |
 | mayor | `#EDC948` gold (stays at Town Hall) |
 | foundations-scout | `#59A14F` green |
@@ -63,7 +63,7 @@ States (from events):
 | `walking` | `agent.walking` | Lerps along the path to the target, with a little bob (sin of time) |
 | `working` | `agent.working` | Stands at the door and taps (small rotation wiggle). Thought bubble shows "…" |
 | `found` | `agent.found` | **Lights up** (emissive glow plus a point light for 1.5 s). The speech bubble shows `finding.bubble`. |
-| `error` | `agent.error` | Grey puff, bubble shows "Hmm, site slow. Retrying" |
+| `failed` | `agent.error` | Turns red, shakes, ring and tag go red. Bubble "Site trouble, retrying ↻" when `retrying`, "Source failed ✗" when it gave up. The next `agent.working` brings it back to work. |
 | `returning` | `agent.returning` | Walks back to Town Hall |
 | `done` | `agent.done` | Idles at Town Hall and faces the camera |
 
@@ -84,6 +84,6 @@ Bubble queue: when several `agent.found` events arrive close together, show each
 
 ## 5. Performance
 
-- There are fewer than 100 meshes, so there is no need for instancing.
+- The static city and the citizens are instanced. Each agent is one merged mesh plus a ring. About 60 draw calls including shadows.
 - `frameloop="always"` is fine.
-- Use Html bubbles with `distanceFactor` so they scale with zoom.
+- Labels, name tags and bubbles are plain DOM, projected once per frame (no drei `<Html>`, which raced under React 19).

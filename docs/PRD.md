@@ -18,7 +18,8 @@ A Computer Engineering student also has a second stream of deadlines: hackathons
 
 **Demo persona:** male, B.Tech Computer Engineering, **2nd year**, OBC, Maharashtra. The UI labels this persona **"sample student"**, with no invented name.
 - On NSP he matches PM YASASVI Top Class Education in College (OBC, EBC, DNT) and PM-USP CSSS (merit, renewal). AICTE Swanath (Technical Degree) is listed as conditional, because it is for orphans and wards of armed forces martyrs. AICTE Pragati (girls) is **excluded** for this persona.
-- On MahaDBT he matches the OBC schemes: Post Matric Scholarship to OBC Students, Tuition Fees and Examination Fees to OBC Students, Rajarshri Chhatrapati Shahu Maharaj Fee Reimbursement, and Dr Panjabrao Deshmukh Hostel Maintenance Allowance.
+- On MahaDBT he conditionally matches two OBC schemes: Post Matric Scholarship to OBC Students and Tuition Fees and Examination Fees to OBC Students (income, CAP admission and attendance are not in the profile). The Rajarshri Chhatrapati Shahu Maharaj Fee Reimbursement (meant for EBC/EWS) and the Dr Panjabrao Deshmukh Hostel Maintenance Allowance (General and SEBC only) are **not** for him.
+- The plan warns about two conflicts: PM YASASVI (college) vs PM-USP CSSS (NSP allows one merit scheme), and CSSS vs a state fee reimbursement or freeship.
 - On private listings he matches open B.Tech or UG schemes such as HDFC Parivartan ECSS (deadline 31-Oct-2026 on Buddy4Study).
 - On hackathon boards he matches online events, and in-person events in India, that are open to undergraduate students.
 
@@ -43,7 +44,7 @@ Enter course, state and category once. Watch a tiny city of TinyFish agents go a
 | P0-10 | **Application Kit** for each scholarship in the plan: required documents, the form fields with the persona's values prefilled, a step list, the deadline and the source link. **Read-only and prefill-only.** | The kit panel shows the notice "Lookout never submits forms and never asks for, enters or stores passwords, OTPs or Aadhaar numbers." Sensitive fields (Aadhaar, OTP, password, bank account) are listed as "enter this yourself on the official portal" and are never prefilled. |
 | P0-11 | The persona is labelled **"sample student"** wherever it appears in the UI | No invented name appears in the UI |
 
-**Build order.** These requirements are delivered across the 6 stages in MILESTONES: P0-7 city (Stage 1); P0-8 characters and bubbles on the stream (Stage 2); P0-2, P0-3, P0-4 and P0-4b real data (Stage 3); P0-5, P0-6, P0-10 and P0-11 plan, kit and persona UI (Stage 4); P1-1 and P1-6 Watchtower and Opportunities (Stage 5); P0-9 mock mode and the remaining P1s (Stage 6). P0-1 (the form) lands in Stage 4. Until then, Stage 2 uses a "Run (fake)" button.
+**Build order.** These requirements are delivered across the 6 stages in MILESTONES: P0-7 city (Stage 1); P0-8 characters and bubbles on the stream (Stage 2); P0-2, P0-3, P0-4 and P0-4b real data (Stage 3); P0-5, P0-6, P0-10 and P0-11 plan, kit and persona UI (Stage 4); P1-1 and P1-6 Watchtower and Opportunities (Stage 5); P0-9 mock mode and the remaining P1s (Stage 6). P0-1 (the form) lands in Stage 4. Until then, Stage 2 uses a "Play recorded run" button that replays `recordings/fake-run.jsonl`.
 
 ## 5. Should-haves (P1)
 

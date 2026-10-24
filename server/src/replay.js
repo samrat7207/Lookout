@@ -20,15 +20,38 @@ export function recordingPath(name, dir = RECORDINGS_DIR) {
   return join(dir, `${name}.jsonl`);
 }
 
-/** @param {ReturnType<import('./bus.js').createRun>} run a run created with replay: true */
-export async function replayRecording(run, file, { speed = 1, maxGapMs = MAX_GAP_MS } = {}) {
+const TICK_MS = 50;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Playback controls for one replay. The city's play/pause and speed buttons change these mid-run. */
+export function createControl({ speed = 1, paused = false } = {}) {
+  return { speed, paused };
+}
+
+/**
+ * @param {ReturnType<import('./bus.js').createRun>} run a run created with replay: true
+ * @param {{ speed?: number, maxGapMs?: number, control?: {speed: number, paused: boolean} }} [opts]
+ *   control is read every tick, so pausing or changing speed takes effect within about 50 ms
+ */
+export async function replayRecording(run, file, { speed = 1, maxGapMs = MAX_GAP_MS, control = createControl({ speed }) } = {}) {
   const events = await readRecording(file);
   let prevT = events[0]?.t ?? 0;
+  let clock = prevT; // recording time played so far (gaps capped)
   for (const evt of events) {
-    const gap = Math.min(Math.max(evt.t - prevT, 0), maxGapMs) / speed;
+    // `remaining` is recording time; it drains at control.speed and not at all while paused
+    let remaining = Math.min(Math.max(evt.t - prevT, 0), maxGapMs);
+    clock += remaining;
     prevT = evt.t;
-    if (gap > 0) await new Promise((r) => setTimeout(r, gap));
-    run.emit(evt.kind, { agentId: evt.agentId, building: evt.building, payload: evt.payload });
+    while (remaining > 0 || control.paused) {
+      if (control.paused) {
+        await sleep(TICK_MS);
+        continue;
+      }
+      const step = Math.min(remaining, TICK_MS * control.speed);
+      await sleep(step / control.speed);
+      remaining -= step;
+    }
+    run.emit(evt.kind, { agentId: evt.agentId, building: evt.building, payload: evt.payload, t: clock });
   }
   return events.length;
 }

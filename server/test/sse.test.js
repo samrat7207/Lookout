@@ -100,3 +100,50 @@ test('recorder writes one JSON line per event', async () => {
   const lines = readFileSync(file, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
   assert.deepEqual(lines.map((e) => e.kind), ['run.started', 'run.complete']);
 });
+
+test('replay control: pause holds events, resume and speed continue the run', async () => {
+  const server = await listen(createApp({ record: false }));
+  const base = `http://localhost:${server.address().port}`;
+  try {
+    const created = await fetch(`${base}/api/runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'mock', recording: 'fake-run', speed: 8 }),
+    }).then((r) => r.json());
+    assert.deepEqual(created.control, { speed: 8, paused: false });
+    const control = (body) =>
+      fetch(`${base}/api/runs/${created.runId}/control`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+    assert.equal((await control({ paused: true })).status, 200);
+    await new Promise((r) => setTimeout(r, 300));
+    const ctl = await fetch(`${base}/api/runs/${created.runId}/control`).then((r) => r.json());
+    assert.equal(ctl.control.paused, true);
+    assert.equal(ctl.closed, false);
+
+    assert.equal((await control({ speed: 99 })).status, 400);
+    assert.equal((await control({ paused: false, speed: 16 })).status, 200);
+    const res = await fetch(`${base}/api/runs/${created.runId}/events`);
+    const events = await readEvents(res, (evts) => evts.some((e) => e.kind === 'run.complete'));
+    assert.equal(events.at(-1).kind, 'run.complete');
+    assert.ok(events.every((e) => e.replay === true));
+
+    const fake = await fetch(`${base}/api/runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'fake', pace: 0 }),
+    }).then((r) => r.json());
+    const refused = await fetch(`${base}/api/runs/${fake.runId}/control`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paused: true }),
+    });
+    assert.equal(refused.status, 409);
+  } finally {
+    server.closeAllConnections?.();
+    server.close();
+  }
+});

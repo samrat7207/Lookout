@@ -4,7 +4,6 @@ import { OrbitControls, Stats } from '@react-three/drei';
 import * as THREE from 'three';
 import { buildCity } from './buildCity.js';
 import { InstancedBatch } from './InstancedBatch.jsx';
-import { Traffic } from './Traffic.jsx';
 import { LandmarkLabels, Landmarks } from './Landmarks.jsx';
 import { Beacon } from './Beacon.jsx';
 
@@ -121,7 +120,7 @@ function RenderStats() {
 }
 
 export default function City() {
-  const { batch, parked } = useMemo(buildCity, []);
+  const { batch } = useMemo(buildCity, []);
   const showStats = useMemo(() => new URLSearchParams(window.location.search).has('stats'), []);
   const [hover, setHover] = useState(null);
 
@@ -137,7 +136,6 @@ export default function City() {
       >
         <Lights />
         <InstancedBatch batch={batch} />
-        <Traffic parked={parked} />
         <Beacon />
         <TileShadow />
         <Landmarks hover={hover} setHover={setHover} />

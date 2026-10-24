@@ -1,5 +1,5 @@
-// Builds the whole static city into one batch (deterministic), plus the list of
-// parked vehicles for Traffic.jsx.
+// Builds the whole static city into one batch (deterministic). There are no vehicles:
+// the streets belong to the citizens and the agents.
 
 import { createBatch, rng } from './batch.js';
 import {
@@ -154,35 +154,13 @@ function park(b, r) {
   hedge(b, cx - 4.4, cz + 2.2, 0.5, 0.9);
 }
 
-/** Parked cars along the kerbs of the spoke roads (the roads without through traffic). */
-function spokeParking(r) {
-  const out = [];
-  const palette = ['#e15759', '#4e79a7', '#f28e2b', '#76b7b2', '#ffffff', '#59a14f', '#edc948', '#b07aa1', '#9c755f'];
-  for (const c of [-7, 7]) {
-    for (const sign of [-1, 1]) {
-      for (const side of [-1, 1]) {
-        const slots = [10.4, 12.6, 14.8, 17.2].filter(() => r.chance(0.55));
-        for (const s of slots) {
-          const type = r.chance(0.2) ? 'van' : r.chance(0.2) ? 'taxi' : 'sedan';
-          // road along z at x = c: kerb at x = c + side * 1.05; keep-left facing
-          out.push({ x: c + side * 1.05, z: sign * s, heading: side > 0 ? -PI / 2 : PI / 2, type, color: r.pick(palette) });
-          // road along x at z = c
-          out.push({ x: sign * (s + 0.6), z: c + side * 1.05, heading: side > 0 ? PI : 0, type: r.chance(0.3) ? 'van' : 'sedan', color: r.pick(palette) });
-        }
-      }
-    }
-  }
-  return out;
-}
-
 export function buildCity() {
   const b = createBatch();
   const r = rng(20261024);
-  const parked = [];
   ground(b);
   markings(b);
   centralHall(b, r);
-  stateOffice(b, r, parked);
+  stateOffice(b, r);
   foundationTowers(b, r);
   watchtower(b, r);
   townHall(b, r);
@@ -191,6 +169,5 @@ export function buildCity() {
   shops(b, r);
   park(b, r);
   streetFurniture(b, r);
-  parked.push(...spokeParking(r));
-  return { batch: b, parked };
+  return { batch: b };
 }

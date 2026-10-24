@@ -62,8 +62,8 @@ export function centralHall(b, r) {
   bench(b, cx + 2.8, cz + 4.2);
 }
 
-/** State Scholarships: 3-storey saffron office, central tower with terracotta pyramid roof, parking. */
-export function stateOffice(b, r, parked) {
+/** State Scholarships: 3-storey saffron office, central tower with terracotta pyramid roof, parking lot. */
+export function stateOffice(b, r) {
   const cx = 14, cz = -14;
   const saffron = '#F28E2B', cream = '#fbe9d0', terracotta = '#c4572e';
   const bz = cz - 1.4;
@@ -85,8 +85,6 @@ export function stateOffice(b, r, parked) {
   const pz = cz + 3.3;
   b.flat(cx, G, pz, 8.4, 0.02, 2.6, '#8d939b');
   for (let i = 0; i <= 5; i++) b.flat(cx - 3.6 + i * 1.44, G + 0.02, pz, 0.06, 0.01, 2.2, '#f4f1e8');
-  const colors = ['#4e79a7', '#e15759', '#ffffff', '#59a14f'];
-  [0, 1, 3, 4].forEach((slot, i) => parked.push({ x: cx - 2.88 + slot * 1.44, z: pz, y: G + 0.02, heading: i % 2 ? PI / 2 : -PI / 2, type: 'sedan', color: colors[i] }));
   // trees and lamps
   for (const tx of [-4.3, 4.3]) tree(b, r, cx + tx, bz + 2.3, 0.85, 'round');
   lamp(b, cx - 4.4, pz + 1.6);

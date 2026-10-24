@@ -18,6 +18,7 @@ Built in 6 stages ([docs/MILESTONES.md](docs/MILESTONES.md)).
 | 3 Real data | ✅ **thin slice**: TinyFish Search + Fetch only, on NSP, MahaDBT 1.0, Buddy4Study, and the Devpost and HackerEarth feeds. Every call goes through the **Gatekeeper** (cache, rate limits, robots.txt, block handling). A **Profiler** feeds the rules, and a **Verifier** re-checks every plan item. Recorded to `recordings/real-run.jsonl` |
 | 4 Plan screen and Application Kit | ✅ done: conflicts panel, ranked list, read-only kits, "Not applicable" reasons, sources footer, `?demo` |
 | 5 Opportunities and Watchtower | ✅ **slim**: hackathons and events from the Devpost and HackerEarth feeds, with their own plan tab; Watchtower "Re-check now" (on request only, no schedules) |
+| UI polish (Part B) | ✅ run history with compare, deadline timeline, print and `.ics` export (fetched dates only), filters and search, editable profile with a Judge and Ranker re-run, guided captions (`?guided`), Day / Dusk / Cycle theme with a filmic colour grade |
 | 6 Polish and rehearsal | partly: LIVE / REPLAY / MOCK with an automatic fallback, a System view (`?tech`), and the API documented in [docs/API.md](docs/API.md) |
 
 ## Team
@@ -73,6 +74,8 @@ Pick a mode in the top bar and press **Start run**. **⚙ System view** (or `?te
 | **Replay** | Replays the last real run (`recordings/real-run.jsonl`), with pause, 1×/2×/4× and restart. | nothing |
 | **Mock** | Replays the scripted run built from recon data (`recordings/fake-run.jsonl`). | nothing |
 
+More views: **🕘 History** (the last 20 completed runs, saved in `server/.data/history.json`; open one or compare two), `?guided` (captions that narrate the run), and the **Day / Dusk / Cycle** theme switch. On the plan: a deadline timeline, filters and search, **Download plan** (print or PDF), **.ics** (only deadlines read from fetched pages), and **Re-run** after editing the profile (income, CAP admission, domicile proof).
+
 `MODE=live|replay|mock` in `server/.env` sets the default (empty: live with a key, else replay). The plan opens when the run finishes, or with **View plan**. `http://localhost:5173/?demo` plays a replay at 2× and opens the plan (rehearsal); `?demo=live` and `?demo=mock` pick the mode.
 
 Refresh the real recording (one live run with the sample student, about 30 s, Search and Fetch only):
@@ -84,8 +87,8 @@ cd server && npm run capture      # writes recordings/real-run.jsonl; a failed r
 Tests:
 
 ```sh
-cd server && npm test    # parsers, ranker, Gatekeeper, Verifier, Watchtower diff, Profiler, API, live run on fixtures, fallback, SSE, replay (43)
-cd web && npm test       # event -> character state reducer (5)
+cd server && npm test    # parsers, ranker, Gatekeeper, Verifier, Watchtower, Profiler, history and re-judge, API, live run on fixtures, fallback, SSE, replay (47)
+cd web && npm test       # event reducer, timeline, filters, .ics export (8)
 ```
 
 Raw stream, without the city:

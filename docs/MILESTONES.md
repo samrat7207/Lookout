@@ -158,6 +158,31 @@ Time budget for 24 h: S1 about 4 h → S2 about 4 h → S3 about 5 h → S4 abou
 
 ---
 
+## Part B: UI features and visual upgrade ✅ done
+
+### Product features
+- ✅ **Run history:** every completed run (mode, time, persona, ranked items with verifier results, sources used and failed) goes into `server/.data/history.json` (last 20, gitignored). The History drawer opens a saved plan, or compares two runs: added, removed, newly closed, deadline moved, fit or verifier result changed (`history/history.js`, tested).
+- ✅ **Deadline timeline:** days left per deadline, "closes in N days" chips, red under 7 days, and a separate "No deadline published" lane (`lib/planTools.js`, tested).
+- ✅ **Export:** "Download plan" prints a clean page (print to PDF). The `.ics` file has all-day events only for deadlines read from fetched text (`dateSource` parsed or snippet), never for "not published" (tested).
+- ✅ **Filters and search:** status (match, conditional, unclear), type (central, state, private, hackathon), verified only, and name search (tested).
+- ✅ **Profile panel:** the known fields plus the unknowns. Editing gender, category, income, CAP admission or domicile proof and pressing Re-run calls `POST /api/rejudge`, which re-applies the Judge (official income limits and the CAP and domicile rules) and the Ranker to the same fetched data. Nothing is re-fetched or guessed (tested).
+- ✅ **Guided demo** (`?guided`): one caption at a time, written from the events, with a skip button.
+- ✅ **States:** loading, empty and error states in the plan and History; the "Replaying recorded run" badge; "last checked" on every item.
+- ✅ **Accessibility:** larger type in the plan, visible focus rings, Escape closes drawers, arrow keys switch tabs.
+
+### City and colour
+- ✅ Filmic grade (ACES tone mapping), a warm key light with a cool sky fill, softer shadows, haze, a warm-to-cool sky gradient, and a subtle vignette.
+- ✅ **Day / Dusk / Cycle** theme switch: windows light up and street lamps glow at dusk (one instanced draw call for the lamp halos).
+- ✅ Town Hall is now the tallest building (a belfry, drum and copper spire). District accents appear on the landmark labels. There are two new tree varieties (poplar, blossom) and paving on the Town Hall plaza.
+- ✅ Compass. Name tags stack instead of overlapping when crowded. Click-to-zoom and orbit limits were already there.
+- Frame time (`?stats`, render only, 1920×912, AMD Radeon integrated GPU): **2.6 ms per frame at Day, 3.0 ms at Dusk, 122–123 draw calls.**
+
+### Dropped or not done
+- A minimap (the compass was added instead). Per-district roof colour families beyond the existing landmark palettes. A post-processing vignette (done in CSS instead: no extra pass).
+- A profile edit changes only the Judge and Ranker. It does not re-fetch, and schemes dropped by older runs come back only if the run kept their fetched fields.
+
+---
+
 ## Stage 6: Mock mode, polish and rehearsal (about 4 h)
 
 **Goal:** the demo never breaks on stage.

@@ -19,6 +19,10 @@ import { buildPlan, istToday } from './rank/ranker.js';
 import { buildKit } from './kit/buildKit.js';
 import { verifyItems } from './verify/verifier.js';
 import { buildCriteria } from './profile/profiler.js';
+import { assessEvent, parseDevpost, parseHackerEarth } from './parse/opps.js';
+
+export const DEVPOST_FEED = 'https://devpost.com/api/hackathons?status[]=upcoming&status[]=open';
+export const HACKEREARTH_FEED = 'https://www.hackerearth.com/chrome-extension/events/';
 import * as recon from './fake/reconData.js';
 
 const NSP_HOME = 'https://scholarships.gov.in/';
@@ -27,8 +31,11 @@ const MAX_B4S_PAGES = 4;
 
 export const SOURCES_NOT_USED = [
   { name: 'Vidyasaarathi', reason: 'Passed recon but most schemes seen were closed or state-restricted; left out of tonight\'s thin slice.' },
-  { name: 'Hackathon boards (Devfolio, MLH, Devpost, HackerEarth, Unstop)', reason: 'Stage 5 (Opportunities) is skipped tonight.' },
-  { name: 'Watchtower (TinyFish Monitor)', reason: 'Stage 5 is skipped tonight.' },
+  { name: 'Unstop', reason: 'Works only as Search plus one detail Fetch per event; left out of the slim Opportunities scout tonight.' },
+  { name: 'Hack2skill', reason: 'Readable, but its deadlines are shown in US time zones (needs verification); left out tonight.' },
+  { name: 'Devfolio and MLH', reason: 'They publish start dates, not registration deadlines; we do not present a start date as a deadline.' },
+  { name: 'Devpost detail pages', reason: 'bot_blocked in recon; we read the Devpost JSON feed instead and never work around the block.' },
+  { name: 'TinyFish Monitor (scheduled Watchtower)', reason: 'Not used: the Watchtower re-checks only when you press "Re-check now". No schedules or webhooks.' },
   { name: 'AICTE portals', reason: 'Fetch returned 403 in recon (blocked); the AICTE schemes are on NSP anyway.' },
   { name: 'Karnataka, UP and West Bengal portals', reason: 'Unreachable in recon (proxy_error).' },
   { name: 'Telangana ePASS', reason: 'Loaded in recon but has no dates.' },
@@ -47,6 +54,7 @@ const AGENTS = {
   'nsp-scout': { name: 'Nisha', role: 'NSP Researcher', building: 'nsp' },
   'mahadbt-scout': { name: 'Mahi', role: 'State Verifier', building: 'mahadbt' },
   'foundations-scout': { name: 'Fauzi', role: 'Foundations Researcher', building: 'foundations' },
+  'opps-scout': { name: 'Hacky', role: 'Opportunities Researcher', building: 'opportunities' },
   mayor: { name: 'Mayor Tara', role: 'Orchestrator', building: 'townhall' },
   gatekeeper: { name: 'Gita', role: 'Gatekeeper', building: 'townhall' },
   verifier: { name: 'Vera', role: 'Verifier', building: 'townhall' },
@@ -64,7 +72,7 @@ export const SOURCE_BUILDING = { nsp: 'nsp', mahadbt: 'mahadbt', buddy4study: 'f
  *   Every web call goes through the Gatekeeper (cache, rate limits, robots.txt, block handling).
  */
 export async function runLive(run, opts = {}) {
-  const { profile = recon.SAMPLE_STUDENT, client = tinyfish, today = istToday(), onLive = () => {} } = opts;
+  const { profile = recon.SAMPLE_STUDENT, client = tinyfish, today = istToday(), onLive = () => {}, opportunities = process.env.OPPORTUNITIES !== 'off' } = opts;
   const gk = createGatekeeper({
     client,
     cacheDir: opts.cacheDir === undefined ? CACHE_DIR : opts.cacheDir,
@@ -94,7 +102,7 @@ export async function runLive(run, opts = {}) {
   let errors = 0;
 
   onLive();
-  const agentIds = Object.keys(AGENTS);
+  const agentIds = Object.keys(AGENTS).filter((id) => id !== 'opps-scout' || opportunities);
   run.emit('run.started', { payload: { profile, mode: 'live', today, agents: agentIds, sourcesNotUsed: SOURCES_NOT_USED } });
   for (const id of agentIds) {
     run.emit('agent.spawned', { agentId: id, building: 'townhall', payload: { name: AGENTS[id].name, role: AGENTS[id].role } });
@@ -340,10 +348,61 @@ export async function runLive(run, opts = {}) {
   const planNow = (extra = {}) => buildPlan(found, { today, headline, notes, notApplicable, ruleEvidence, sources: sources(), verification, profile: profiled, ...extra });
   const mayorPlan = (kind, extra) => run.emit(kind, { agentId: 'mayor', building: 'townhall', payload: planNow(extra) });
 
+  // Opportunities scout: hackathons and tech events from the two JSON feeds that passed recon
+  async function oppsScout() {
+    const a = as('opps-scout');
+    const t0 = Date.now();
+    a.walk('Looking for hackathons and tech events');
+    const pages = await fetchAll(a, 'Fetch Devpost and HackerEarth event feeds', [
+      { name: 'Devpost hackathons (JSON)', url: DEVPOST_FEED },
+      { name: 'HackerEarth events (JSON)', url: HACKEREARTH_FEED },
+    ]);
+    const events = [
+      ...(pages.get(DEVPOST_FEED)?.text ? parseDevpost(pages.get(DEVPOST_FEED).text).map((e) => ({ ...e, feed: DEVPOST_FEED, checkedAt: pages.get(DEVPOST_FEED).checkedAt })) : []),
+      ...(pages.get(HACKEREARTH_FEED)?.text ? parseHackerEarth(pages.get(HACKEREARTH_FEED).text).map((e) => ({ ...e, feed: HACKEREARTH_FEED, checkedAt: pages.get(HACKEREARTH_FEED).checkedAt })) : []),
+    ];
+    let n = 0;
+    for (const e of events) {
+      const fit = assessEvent(e, criteria, today);
+      if (fit.fit === 'not_applicable') {
+        notApplicable.push({ title: e.title, reason: fit.reason, sourceUrl: e.url, checkedAt: e.checkedAt });
+        continue;
+      }
+      n++;
+      a.found({
+        id: `${e.source}:${slugify(e.title)}`,
+        kind: e.kind ?? 'hackathon',
+        fit: fit.fit,
+        title: e.title,
+        deadline: e.end,
+        deadlineLabel: e.end ? (e.source === 'devpost' ? 'Submissions close' : 'Challenge ends') : 'deadline not published',
+        // the date was read from the feed, so the feed is the source the Verifier re-checks
+        sourceUrl: e.feed,
+        eventUrl: e.url,
+        checkedAt: e.checkedAt,
+        matchReason: fit.reason,
+        needsVerification: e.source === 'hackerearth', // end_tz may be the challenge end, not the last day to register
+        source: e.source,
+        dateSource: e.end ? 'parsed' : 'none',
+        evidence: e.evidence,
+        amount: e.prize ? `Prize pool ${e.prize} (as listed on Devpost)` : null,
+        matchedOn: [`mode=${e.mode}`],
+        bubble: `${e.title.slice(0, 36)}${e.end ? `: ${e.end.slice(8)}/${e.end.slice(5, 7)}` : ''}`,
+        via: 'fetch',
+        cached: false,
+        event: { startsOn: e.start, endsOn: e.end, mode: e.mode, location: e.location, organiser: e.organiser },
+      });
+    }
+    a.progress(`Read ${events.length} events from 2 feeds; ${n} fit (online or in India and still open)`, 'fetch');
+    a.done(n, t0);
+    a.back();
+  }
+
   await Promise.all([
     nspScout().then(() => mayorPlan('plan.updated')),
     mahadbtScout().then(() => mayorPlan('plan.updated')),
     foundationsScout().then(() => mayorPlan('plan.updated')),
+    ...(opportunities ? [oppsScout().then(() => mayorPlan('plan.updated'))] : []),
   ]);
 
   // Verifier: re-fetch every plan item's source (cache bypassed) and check name + deadline

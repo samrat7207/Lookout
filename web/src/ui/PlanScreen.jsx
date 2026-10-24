@@ -77,17 +77,26 @@ export function VerifyBadge({ v, withReason = false }) {
   );
 }
 
-function Row({ item, kit, onKit, verification }) {
+const WATCH = {
+  changed: { label: '🗼 Changed since last check', cls: 'changed' },
+  'no-change': { label: '🗼 No change', cls: 'verified' },
+  unchecked: { label: '🗼 Not re-checked', cls: 'unverified' },
+};
+
+function Row({ item, kit, onKit, verification, watch }) {
   const fit = FIT[item.fit] ?? FIT.unclear;
   const v = item.verification ?? verification;
+  const w = watch ? WATCH[watch.status] : null;
   return (
     <li className="plan__row">
-      <div className="plan__rank">#{item.rank}</div>
+      <div className="plan__rank">#{item.kindRank ?? item.rank}</div>
       <div className="plan__body">
         <div className="plan__top">
           <span className={`chip chip--${fit.cls}`}>{fit.label}</span>
           {item.needsVerification && <span className="chip chip--verify">needs verification</span>}
           <VerifyBadge v={v} withReason />
+          {w && <span className={`chip chip--${w.cls}`} title={watch.reason}>{w.label}</span>}
+          {watch?.status === 'changed' && <span className="plan__vreason plan__vreason--changed">{watch.reason}</span>}
           <span className="plan__kind">{item.kind === 'scholarship' ? '🎓' : item.kind === 'hackathon' ? '💻' : '📅'} {item.source}</span>
         </div>
         <h4>{item.title}</h4>
@@ -96,9 +105,10 @@ function Row({ item, kit, onKit, verification }) {
           {item.amount && <span className="plan__amount">{item.amount}</span>}
         </div>
         <p className="plan__why">{item.why}</p>
-        <p className="plan__rankwhy"><b>Why this ranking:</b> {item.rankWhy}</p>
+        <p className="plan__rankwhy"><b>Why this ranking:</b> {item.kindRankWhy ?? item.rankWhy}</p>
         <div className="plan__links">
-          <a href={item.sourceUrl} target="_blank" rel="noreferrer noopener">Source: {host(item.sourceUrl)}</a>
+          <a href={item.sourceUrl} target="_blank" rel="noreferrer noopener">{item.eventUrl ? 'Date read from' : 'Source'}: {host(item.sourceUrl)}</a>
+          {item.eventUrl && <a href={item.eventUrl} target="_blank" rel="noreferrer noopener">Event page</a>}
           <span className="plan__checked">Last checked {fmtChecked(item.checkedAt)}{v?.checkedAt && v.status !== 'unverified' ? ` · re-checked ${fmtChecked(v.checkedAt)}` : ''}</span>
           {kit && (
             <button type="button" className="btn btn--primary" onClick={() => onKit(kit)}>
@@ -185,11 +195,47 @@ function ProfileBox({ profile }) {
 }
 
 /** Full-screen plan over the city: conflicts, ranked list, kits, not-applicable, sources footer. */
-export function PlanScreen({ state, onClose }) {
+/** Watchtower: "Re-check now" re-fetches the plan's sources and reports real changes only. */
+function Watchtower({ state, plan, result, setResult }) {
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    try {
+      const items = [...plan.items, ...(plan.missed ?? [])].map(({ opportunityId, title, deadline, source, sourceUrl }) => ({ opportunityId, title, deadline, source, sourceUrl }));
+      const res = await fetch('/api/recheck', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runId: state.runId, items }) });
+      const json = await res.json().catch(() => ({}));
+      setResult(res.ok ? json : { error: json.error ?? `HTTP ${res.status}` });
+    } catch (err) {
+      setResult({ error: err.message });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const sum = result?.summary;
+  return (
+    <section className="plan__watch">
+      <button type="button" className="btn" disabled={busy} onClick={run}>{busy ? '🗼 Re-checking…' : '🗼 Re-check now'}</button>
+      {result?.error && <span className="plan__watchmsg plan__watchmsg--err">{result.error}</span>}
+      {sum && (
+        <span className={`plan__watchmsg${sum.changed ? ' plan__watchmsg--err' : ''}`}>
+          Watchtower, {fmtChecked(sum.checkedAt)}: {sum.changed ? `${sum.changed} changed since the last check` : 'no changes found'} ({sum.noChange} unchanged, {sum.unchecked} could not be re-checked, {sum.sources} sources fetched)
+        </span>
+      )}
+      {!sum && !result?.error && <span className="plan__watchmsg">Re-fetches these sources now and flags only a real date or listing change.</span>}
+    </section>
+  );
+}
+
+export function PlanScreen({ state, onClose, recheck, setRecheck }) {
   const [kit, setKit] = useState(null);
+  const [tab, setTab] = useState('scholarship');
   const plan = state.plan;
   if (!plan) return null;
   const notUsed = plan.sources?.notUsed ?? state.sourcesNotUsed ?? [];
+  const watchById = new Map((recheck?.results ?? []).map((r) => [r.opportunityId, r]));
+  const scholarships = plan.items.filter((i) => i.kind === 'scholarship');
+  const opportunities = plan.items.filter((i) => i.kind !== 'scholarship');
+  const shown = tab === 'scholarship' ? scholarships : opportunities;
 
   return (
     <div className="plan" role="dialog" aria-label="Your plan">
@@ -209,10 +255,20 @@ export function PlanScreen({ state, onClose }) {
         )}
         <p className="plan__safety">🔒 {SAFETY}</p>
         <ProfileBox profile={plan.profile ?? state.profile} />
-        <Conflicts conflicts={plan.conflicts} />
+        <Watchtower state={state} plan={plan} result={recheck} setResult={setRecheck} />
+        {tab === 'scholarship' && <Conflicts conflicts={plan.conflicts} />}
+        <div className="plan__tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={tab === 'scholarship'} className={`plan__tab${tab === 'scholarship' ? ' plan__tab--on' : ''}`} onClick={() => setTab('scholarship')}>
+            🎓 Scholarships ({scholarships.length})
+          </button>
+          <button type="button" role="tab" aria-selected={tab !== 'scholarship'} className={`plan__tab${tab !== 'scholarship' ? ' plan__tab--on' : ''}`} onClick={() => setTab('opportunities')}>
+            💻 Opportunities ({opportunities.length})
+          </button>
+        </div>
+        {shown.length === 0 && <p className="plan__empty">{tab === 'scholarship' ? 'No scholarships in this run.' : 'No hackathons or events in this run (the Opportunities scout did not run, or found none that fit).'}</p>}
         <ol className="plan__list">
-          {plan.items.map((item) => (
-            <Row key={item.opportunityId} item={item} kit={item.kitId ? state.kitsById[item.kitId] : null} onKit={setKit} verification={state.verification[item.opportunityId]} />
+          {shown.map((item) => (
+            <Row key={item.opportunityId} item={item} kit={item.kitId ? state.kitsById[item.kitId] : null} onKit={setKit} verification={state.verification[item.opportunityId]} watch={watchById.get(item.opportunityId)} />
           ))}
         </ol>
         {plan.missed?.length > 0 && (

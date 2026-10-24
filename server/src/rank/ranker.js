@@ -79,6 +79,7 @@ function toItem(opp, today, kitIds, verification) {
     why: opp.matchReason,
     amount: opp.amount ?? null,
     sourceUrl: opp.sourceUrl,
+    eventUrl: opp.eventUrl ?? null,
     checkedAt: opp.checkedAt ?? null,
     needsVerification: opp.needsVerification ?? false,
     action: ACTIONS[opp.source] ?? 'Open the source page',
@@ -112,6 +113,14 @@ export function buildPlan(opportunities, { today, headline = null, notes = [], k
     item.rank = i + 1;
     item.rankWhy = rankWhy(item, item.rank, items[i - 1]);
   });
+  // the same order within each kind, for the Scholarships and Opportunities tabs
+  for (const kind of new Set(items.map((i) => i.kind))) {
+    const own = items.filter((i) => i.kind === kind);
+    own.forEach((item, i) => {
+      item.kindRank = i + 1;
+      item.kindRankWhy = rankWhy(item, i + 1, own[i - 1]);
+    });
+  }
 
   const counts = { scholarship: 0, hackathon: 0, event: 0 };
   for (const i of items) counts[i.kind]++;

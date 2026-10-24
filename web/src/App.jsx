@@ -21,6 +21,8 @@ export default function App() {
   const [mode, setMode] = useState(DEMO?.mode ?? null);
   const [planOpen, setPlanOpen] = useState(false);
   const [duskCycle, setDuskCycle] = useState(false);
+  const [recheck, setRecheck] = useState(null); // Watchtower result for the current plan
+  useEffect(() => setRecheck(null), [state.runId]);
 
   // open the plan once per run when it finishes
   const openedFor = useRef(null);
@@ -69,7 +71,7 @@ export default function App() {
       />
       <EventLog state={state} onSelect={setSelected} />
       <SideCard selected={selected} state={state} onClose={() => setSelected(null)} />
-      {planOpen && <PlanScreen state={state} onClose={() => setPlanOpen(false)} />}
+      {planOpen && <PlanScreen state={state} onClose={() => setPlanOpen(false)} recheck={recheck} setRecheck={setRecheck} />}
       <p className="safety">Lookout never logs in, never submits forms, and never asks for, enters or stores passwords, OTPs or Aadhaar numbers.</p>
       <p className="hint">Drag to orbit · scroll to zoom · right-drag to pan · click a building or character</p>
     </main>

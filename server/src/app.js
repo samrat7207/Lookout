@@ -17,6 +17,7 @@ import { createHistory, diffPlans, entryFromRun, HISTORY_FILE, summarize } from 
 import { rejudgePlan } from './rank/rejudge.js';
 import { openRepository } from './db/index.js';
 import { rowsFromEntry, unknownFields } from './db/fromRun.js';
+import { createLimiters, limitSettings } from './limits.js';
 import { allowedOrigins, cors, errorHandler, redact, requestLogger, schemas, securityHeaders, validate } from './security.js';
 
 // Modes (MODE in server/.env sets the default):
@@ -106,10 +107,13 @@ function planOf(run) {
 
 /** @param {{ record?: boolean, client?: object, cacheDir?: string|null, historyFile?: string,
  *   db?: Parameters<typeof openRepository>[0] | Promise<Awaited<ReturnType<typeof openRepository>>> }} [opts]
- *   db: options for openRepository, or an already opened repository (tests); origins: the CORS allowlist */
-export function createApp({ record = true, client, cacheDir, historyFile = process.env.LOOKOUT_HISTORY_FILE || HISTORY_FILE, db, origins = allowedOrigins() } = {}) {
+ *   db: options for openRepository, or an already opened repository (tests); origins: the CORS allowlist;
+ *   limits: rate-limit settings (limitSettings() shape) */
+export function createApp({ record = true, client, cacheDir, historyFile = process.env.LOOKOUT_HISTORY_FILE || HISTORY_FILE, db, origins = allowedOrigins(), limits = limitSettings() } = {}) {
   const app = express();
   app.disable('x-powered-by');
+  if (process.env.TRUST_PROXY) app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? true : process.env.TRUST_PROXY);
+  const limiter = createLimiters(limits);
   app.use(requestLogger());
   app.use(securityHeaders());
   app.use(cors(origins));
@@ -122,6 +126,8 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
   });
   app.locals.repo = repoReady;
   app.use(express.json({ limit: '100kb' }));
+  // runs and re-checks have their own tighter limits; everything else under /api the read limit
+  app.use('/api', (req, res, next) => (req.method === 'POST' && /^\/(runs?|recheck)\/?$/.test(req.path) ? next() : limiter.read(req, res, next)));
   const cacheDirUsed = cacheDir === undefined ? CACHE_DIR : cacheDir;
   let lastRun = null; // { runId, mode, startedAt, finishedAt, outcome, gatekeeper? }
 
@@ -134,6 +140,7 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
       lastRecording: lastRealRecording(),
       opportunities: process.env.OPPORTUNITIES !== 'off',
       cache: cacheStats(cacheDirUsed),
+      limits: { ...limiter.settings, openEventStreams: limiter.openStreams() },
       database: await repoReady.then((r) => r?.info() ?? { kind: 'none', fallbackReason: 'database unavailable; the JSON history is used' }),
       lastRun,
     });
@@ -161,7 +168,7 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
     }
   });
 
-  app.post(['/api/runs', '/api/run'], validate(schemas.run), (req, res) => {
+  app.post(['/api/runs', '/api/run'], limiter.run, validate(schemas.run), (req, res) => {
     const body = req.body ?? {};
     const mode = body.mode ?? defaultMode();
     const start = starters[mode];
@@ -237,7 +244,7 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
     res.json({ default: lastRealRecording(), recordings: await listRecordings() });
   });
 
-  app.get(['/api/runs/:runId/events', '/api/run/:runId/events'], (req, res) => {
+  app.get(['/api/runs/:runId/events', '/api/run/:runId/events'], limiter.sse, (req, res) => {
     const run = getRun(req.params.runId);
     if (!run) return res.status(404).json({ error: 'run not found' });
     streamRun(req, res, run);
@@ -300,7 +307,7 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
 
   // Watchtower: re-fetch the sources of a plan's items now and report real changes only.
   // Body: { runId } (preferred) or { items: [{ opportunityId, title, deadline, source, sourceUrl }] }.
-  app.post('/api/recheck', validate(schemas.recheck), async (req, res) => {
+  app.post('/api/recheck', limiter.recheck, validate(schemas.recheck), async (req, res) => {
     if (!hasApiKey() && !client) return res.status(503).json({ error: 'Re-check reads live pages, so it needs the TinyFish key on the server. Nothing was checked.' });
     const body = req.body ?? {};
     let items = null;

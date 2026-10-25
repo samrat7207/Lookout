@@ -11,7 +11,7 @@ import { Signs } from './Signs.jsx';
 import { LANDMARKS } from './layout.js';
 import { MATERIALS } from './InstancedBatch.jsx';
 
-const PAN_LIMIT = 16;
+const PAN_LIMIT = 30; // the outer districts reach ±33
 // the view centre sits a little behind the middle, so the run bar never covers the back landmarks
 const HOME_TARGET = new THREE.Vector3(-2, 1.5, -2);
 const DAY_FOG = new THREE.Color('#e4edf6');
@@ -73,7 +73,7 @@ function CameraRig({ focusId }) {
       target={HOME_TARGET.toArray()}
       enableDamping
       dampingFactor={0.08}
-      minZoom={fit * 0.75}
+      minZoom={fit * 0.5}
       maxZoom={fit * 4.5}
       minPolarAngle={0.55}
       maxPolarAngle={1.18}
@@ -136,10 +136,10 @@ function Atmosphere({ theme }) {
         color="#ffe2bd"
         castShadow
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-34}
-        shadow-camera-right={34}
-        shadow-camera-top={34}
-        shadow-camera-bottom={-34}
+        shadow-camera-left={-50}
+        shadow-camera-right={50}
+        shadow-camera-top={50}
+        shadow-camera-bottom={-50}
         shadow-camera-near={1}
         shadow-camera-far={120}
         shadow-bias={-0.0004}
@@ -207,7 +207,7 @@ function TileShadow() {
   }, []);
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[2, -3.2, 2]}>
-      <planeGeometry args={[82, 82]} />
+      <planeGeometry args={[124, 124]} />
       <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} />
     </mesh>
   );

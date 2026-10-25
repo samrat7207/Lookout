@@ -16,7 +16,7 @@ const PLACE_DEFS = {
   foundations: { spot: [-10.0, 16.5], walk: [-8.8, 16.5], road: [-7, 16.5] },
   opportunities: { spot: [12.6, 14.2], walk: [8.8, 14.2], road: [7, 14.2] },
   // the Cafeteria (handoffs) and the Library (the Librarian) face the inner roads
-  cafeteria: { spot: [10.4, -2.6], walk: [8.8, -2.6], road: [7, -2.6] },
+  cafeteria: { spot: [10.9, 0.0], walk: [8.8, 0.4], road: [7, 0.4] },
   library: { spot: [-10.2, 0.6], walk: [-8.8, 0.6], road: [-7, 0.6] },
 };
 // two agents meet at a Cafeteria table: one on each side

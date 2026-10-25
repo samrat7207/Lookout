@@ -1,13 +1,15 @@
-// City grid (CITY_DESIGN §1): 3×3 blocks of 11 m, 3 m roads, ring road, 48 m grey base.
+// City grid (CITY_DESIGN §1): 5×5 blocks of 11 m, 3 m roads, an outer ring road, 76 m grey base.
+// The inner 3×3 holds the landmarks; the outer ring holds four districts (offices, campus,
+// homes, market) and corner parks. Agents only use the inner roads.
 // Landmark ids match the event `building` ids from EVENT_SCHEMA so Stage 2 can
 // route characters to them.
 
-export const BASE = 48;
-export const ASPHALT = 45; // road surface extent (±22.5)
+export const BASE = 76;
+export const ASPHALT = 73; // road surface extent (±36.5)
 export const BLOCK = 11;
 export const ROAD_W = 3;
-export const ROAD_LINES = [-21, -7, 7, 21];
-export const BLOCK_CENTERS = [-14, 0, 14];
+export const ROAD_LINES = [-35, -21, -7, 7, 21, 35];
+export const BLOCK_CENTERS = [-28, -14, 0, 14, 28];
 export const KERB_H = 0.16;
 export const LOT_TOP = 0.2; // ground level inside a block
 export const ROAD_TOP = 0.05;
@@ -72,8 +74,8 @@ export const LANDMARKS = [
     short: 'Cafeteria',
     blurb: 'Where agents hand data to each other',
     icon: '☕',
-    x: 11.6, z: -2.4, labelY: 4.2,
-    hits: [{ x: 11.6, z: -2.4, w: 4.0, h: 1.8, d: 4.0 }],
+    x: 11.6, z: -1.2, labelY: 4.2,
+    hits: [{ x: 11.6, z: -1.6, w: 4.0, h: 1.8, d: 4.0 }],
   },
   {
     id: 'opportunities',

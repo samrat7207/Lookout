@@ -15,6 +15,8 @@ import { recheck } from './watch/watchtower.js';
 import { istToday } from './rank/ranker.js';
 import { createHistory, diffPlans, entryFromRun, HISTORY_FILE, summarize } from './history/history.js';
 import { rejudgePlan } from './rank/rejudge.js';
+import { openRepository } from './db/index.js';
+import { rowsFromEntry, unknownFields } from './db/fromRun.js';
 
 // Modes (MODE in server/.env sets the default):
 //   live    real TinyFish Search + Fetch; recorded to recordings/<runId>.jsonl. Falls back
@@ -101,14 +103,24 @@ function planOf(run) {
   return evt?.payload ?? null;
 }
 
-export function createApp({ record = true, client, cacheDir, historyFile = process.env.LOOKOUT_HISTORY_FILE || HISTORY_FILE } = {}) {
+/** @param {{ record?: boolean, client?: object, cacheDir?: string|null, historyFile?: string,
+ *   db?: Parameters<typeof openRepository>[0] | Promise<Awaited<ReturnType<typeof openRepository>>> }} [opts]
+ *   db: options for openRepository, or an already opened repository (tests) */
+export function createApp({ record = true, client, cacheDir, historyFile = process.env.LOOKOUT_HISTORY_FILE || HISTORY_FILE, db } = {}) {
   const app = express();
   const history = createHistory(historyFile);
+  // the database (Postgres, else local SQLite); never blocks start-up, and a failure here
+  // leaves the JSON history and the recordings as they are
+  const repoReady = Promise.resolve(db?.then ? db : openRepository(db ?? {})).catch((err) => {
+    console.error('database: unavailable, using the JSON history only:', err.code ?? err.name);
+    return null;
+  });
+  app.locals.repo = repoReady;
   app.use(express.json({ limit: '200kb' }));
   const cacheDirUsed = cacheDir === undefined ? CACHE_DIR : cacheDir;
   let lastRun = null; // { runId, mode, startedAt, finishedAt, outcome, gatekeeper? }
 
-  app.get('/api/health', (_req, res) => {
+  app.get('/api/health', async (_req, res) => {
     res.json({
       ok: true,
       modes: MODES,
@@ -117,8 +129,31 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
       lastRecording: lastRealRecording(),
       opportunities: process.env.OPPORTUNITIES !== 'off',
       cache: cacheStats(cacheDirUsed),
+      database: await repoReady.then((r) => r?.info() ?? { kind: 'none', fallbackReason: 'database unavailable; the JSON history is used' }),
       lastRun,
     });
+  });
+
+  // Saved runs from the database: newest first, and one run with its plan items.
+  app.get('/api/runs', async (req, res, next) => {
+    try {
+      const repo = await repoReady;
+      if (!repo) return res.json({ store: 'json', runs: history.list().map(summarize) });
+      res.json({ store: repo.info().kind, runs: await repo.runs.list({ limit: req.query.limit }) });
+    } catch (err) {
+      next(err);
+    }
+  });
+  app.get('/api/runs/:runId', async (req, res, next) => {
+    try {
+      const repo = await repoReady;
+      const run = repo && (await repo.runs.get(req.params.runId));
+      if (!run) return res.status(404).json({ error: 'no saved run with that id' });
+      const profile = run.profileId ? await repo.profiles.get(run.profileId) : null;
+      res.json({ store: repo.info().kind, run, profile, unknown: unknownFields(profile), items: await repo.planItems.listByRun(run.id) });
+    } catch (err) {
+      next(err);
+    }
   });
 
   app.post(['/api/runs', '/api/run'], (req, res) => {
@@ -147,11 +182,18 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
         const end = run.history.findLast((e) => e.kind === 'run.complete' || e.kind === 'run.failed');
         // run history: every completed run with a plan (fake test runs are not saved)
         if (mode !== 'fake') {
+          let entry = null;
           try {
-            const entry = entryFromRun(run, { mode });
+            entry = entryFromRun(run, { mode });
             if (entry) history.add(entry);
           } catch (err) {
             console.error('history:', err.message);
+          }
+          if (entry) {
+            const rows = rowsFromEntry(entry, { startedAt: mine.startedAt, finishedAt: new Date().toISOString(), status: end?.kind === 'run.complete' ? 'complete' : 'failed' });
+            repoReady
+              .then((repo) => repo?.saveRun(rows))
+              .catch((err) => console.error('database: run not saved:', err.code ?? err.name));
           }
         }
         Object.assign(mine, {

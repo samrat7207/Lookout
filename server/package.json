@@ -4,7 +4,9 @@
   "private": true,
   "description": "Lookout backend: runs TinyFish agents and streams events to the city over SSE",
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "start": "node --env-file-if-exists=.env src/index.js",
     "dev": "node --watch --env-file-if-exists=.env src/index.js",
@@ -14,6 +16,10 @@
     "fake:record": "node scripts/recordFake.js"
   },
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
+    "pg": "^8.23.1",
+    "zod": "^4.6.7"
   }
 }

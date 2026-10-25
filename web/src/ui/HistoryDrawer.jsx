@@ -15,6 +15,76 @@ function DiffList({ title, rows, render, tone }) {
   );
 }
 
+const STATUS_TEXT = { match: 'match', conditional: 'conditional', unclear: 'unclear', no: 'not applicable' };
+
+/** Runs saved in the database (GET /api/runs): list them, open one to see its stored items. */
+function SavedRuns() {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [openId, setOpenId] = useState(null);
+  const [detail, setDetail] = useState(null);
+  useEffect(() => {
+    fetch('/api/runs')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then(setData)
+      .catch((e) => setError(`Could not load saved runs: ${e.message}`));
+  }, []);
+  const show = async (id) => {
+    if (openId === id) return setOpenId(null);
+    setOpenId(id);
+    setDetail(null);
+    try {
+      const r = await fetch(`/api/runs/${encodeURIComponent(id)}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      setDetail(await r.json());
+    } catch (e) {
+      setError(`Could not open that saved run: ${e.message}`);
+    }
+  };
+  const store = data?.store === 'postgres' ? 'Postgres' : data?.store === 'local' ? 'local database (SQLite fallback)' : data?.store === 'json' ? 'JSON history (no database)' : '…';
+  return (
+    <section className="hist__saved" aria-label="Saved runs in the database">
+      <h3>Saved runs · {store}</h3>
+      {error && <p className="hist__error" role="alert">{error}</p>}
+      {data?.runs?.length === 0 && <p className="plan__empty">Nothing saved yet.</p>}
+      {data?.store !== 'json' && data?.runs?.length > 0 && (
+        <ul className="hist__list">
+          {data.runs.map((r) => (
+            <li key={r.id} className="hist__row">
+              <span className={`hist__mode hist__mode--${r.mode}`}>{r.mode}</span>
+              <span>{fmt(r.finishedAt ?? r.startedAt)}</span>
+              <span className="sys__muted">{r.items} items · {r.status}</span>
+              <button type="button" className="btn" aria-expanded={openId === r.id} onClick={() => show(r.id)}>{openId === r.id ? 'Hide' : 'Show items'}</button>
+              {openId === r.id && (
+                <div className="hist__items">
+                  {!detail && <p className="sys__muted">Loading…</p>}
+                  {detail?.unknown?.length > 0 && <p className="sys__muted">Profile facts not stated: {detail.unknown.join(', ')} (unknown)</p>}
+                  {detail && (
+                    <table>
+                      <thead><tr><th>#</th><th>Item</th><th>Status</th><th>Deadline</th><th>Source</th></tr></thead>
+                      <tbody>
+                        {detail.items.map((i) => (
+                          <tr key={i.id}>
+                            <td>{i.rank ?? '–'}</td>
+                            <td>{i.name}</td>
+                            <td>{STATUS_TEXT[i.status]}</td>
+                            <td>{i.deadline ?? i.deadlineNote ?? 'not published'}</td>
+                            <td><a href={i.sourceUrl} target="_blank" rel="noreferrer">source</a> · checked {fmt(i.lastChecked)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 /** History drawer: the last 20 completed runs (server store). Open one, or compare two. */
 export function HistoryDrawer({ onClose, onOpen }) {
   const [runs, setRuns] = useState(null); // null = loading
@@ -109,6 +179,7 @@ export function HistoryDrawer({ onClose, onOpen }) {
           {!['added', 'removed', 'newlyClosed', 'deadlineMoved', 'fitChanged', 'verificationChanged'].some((k) => cmp.diff[k].length) && <p className="plan__empty">No differences between these two runs.</p>}
         </section>
       )}
+      <SavedRuns />
     </aside>
   );
 }

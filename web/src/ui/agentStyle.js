@@ -13,6 +13,8 @@ export const ROLE_COLORS = {
   gatekeeper: '#9bc53d',
   verifier: '#5e60ce',
   profiler: '#00a6a6',
+  'kit-builder': '#e07a5f',
+  'conflict-checker': '#8d6e63',
 };
 export const roleColor = (id) => ROLE_COLORS[id] ?? '#9aa3ad';
 

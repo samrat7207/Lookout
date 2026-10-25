@@ -44,7 +44,8 @@ function sqliteBackedPool({ failAfter = Infinity } = {}) {
     }
     const stmt = db.prepare(pgToSqlite(sql));
     const bound = params.map((v) => (typeof v === 'boolean' ? (v ? 1 : 0) : v ?? null));
-    return { rows: /^\s*SELECT/i.test(sql) ? stmt.all(...bound) : (stmt.run(...bound), []) };
+    // like pg, a statement with RETURNING gives rows too
+    return { rows: /^\s*SELECT/i.test(sql) || /\bRETURNING\b/i.test(sql) ? stmt.all(...bound) : (stmt.run(...bound), []) };
   };
   return { log, query, connect: async () => ({ query, release() {} }), end: async () => {}, on() {} };
 }
@@ -182,5 +183,23 @@ test('API: with an unreachable database the app keeps running, health says local
   } finally {
     server.closeAllConnections?.();
     server.close();
+  }
+});
+
+test('retention purge on the Postgres implementation (stand-in): old runs go, newer ones stay', async () => {
+  const repo = await openRepository({ pool: sqliteBackedPool(), localFile: ':memory:' });
+  try {
+    assert.equal(repo.info().kind, 'postgres');
+    const rows = await fakeRows();
+    await repo.saveRun({ ...rows, run: { ...rows.run, id: 'pg-old', startedAt: '2026-08-01T00:00:00.000Z' }, items: rows.items.map((i, n) => ({ ...i, id: `pg-old:${n}` })) });
+    await repo.saveRun({ ...rows, run: { ...rows.run, id: 'pg-new' }, items: rows.items.map((i, n) => ({ ...i, id: `pg-new:${n}` })) });
+    const removed = await repo.purgeOlderThan('2026-09-25T00:00:00.000Z');
+    assert.equal(removed.runs, 1);
+    assert.equal(removed.planItems, rows.items.length);
+    assert.equal(repo.info().kind, 'postgres', 'no fallback triggered');
+    assert.equal(await repo.runs.get('pg-old'), null);
+    assert.ok(await repo.runs.get('pg-new'));
+  } finally {
+    await repo.close();
   }
 });

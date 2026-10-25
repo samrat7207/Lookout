@@ -94,3 +94,17 @@ Bubble queue: when several `agent.found` events arrive close together, show each
 - **Name tags** stack when they overlap; tags lifted two or more levels fade so a crowd stays readable.
 - `frameloop="always"` is fine.
 - Labels, name tags and bubbles are plain DOM, projected once per frame (no drei `<Html>`, which raced under React 19).
+
+## 7. City v3 (2026-10-25): four corner districts
+The corner parks are replaced by one building each. Every building and agent is tied to code that really runs; nothing moves without its event.
+
+| Corner | Building (`building` id) | Agent | Moves on | Label shows (from events) |
+|---|---|---|---|---|
+| NW | Checkpoint (`checkpoint`) | Gatekeeper Gita (Live and live recordings; mock makes no web calls) | `cache.hit/miss`, `rate.limited`, `blocked`, `fallback` | cache hits, backoffs, blocked, fallbacks |
+| NE | Inspection Office (`inspection`) | Verifier Vera | `agent.working`, `verify.result` | re-checked, changed, could not verify |
+| SW | Application Desk (`appdesk`) | Kit Builder Kit | `kit.building`, `kit.ready` | kits ready of kits prepared (read-only) |
+| SE | Auditor's Office (`auditor`) | Conflict Checker Cora | `conflict.check` | checks, "may not be combinable" |
+
+- Agents reach the corners along the ±21 roads (`paths.js`); inner routes are unchanged.
+- Older recordings: the Gatekeeper and Verifier are routed by agent id. The Kit Builder and Conflict Checker are rebuilt from the recording's own `kit.ready` and `plan.ready` (`upgradeCorners`) and say "rebuilt from the recording".
+- Frame time, measured on the production build in an automated Chrome tab (mock demo, plan open): median frame interval 20.9 ms, p95 34.7 ms. That is **below 60 fps in that measurement**. It was measured differently from the v2 figure (2.2 ms median CPU), so the two cannot be compared directly. Check with `?stats` by hand.

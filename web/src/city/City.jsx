@@ -4,7 +4,7 @@ import { OrbitControls, Stats } from '@react-three/drei';
 import * as THREE from 'three';
 import { buildCity } from './buildCity.js';
 import { InstancedBatch } from './InstancedBatch.jsx';
-import { LandmarkLabels, Landmarks } from './Landmarks.jsx';
+import { LandmarkLabels, Landmarks, cornerCounts } from './Landmarks.jsx';
 import { Beacon } from './Beacon.jsx';
 import { AgentTags, Agents, BuildingEffects } from './Agents.jsx';
 import { Signs } from './Signs.jsx';
@@ -271,7 +271,7 @@ export default function City({ state, playback, selected, onSelect, theme = 'day
         <CameraRig focusId={selected?.type === 'building' ? selected.id : null} />
         {showStats && <RenderStats />}
       </Canvas>
-      <LandmarkLabels hover={hover} buildings={state.buildings} selected={selected} onSelect={onSelect} />
+      <LandmarkLabels hover={hover} buildings={state.buildings} counts={cornerCounts(state)} selected={selected} onSelect={onSelect} />
       <AgentTags state={state} playback={playback} selected={selected} onSelect={onSelect} />
       <Compass />
       <div className="vignette" aria-hidden />

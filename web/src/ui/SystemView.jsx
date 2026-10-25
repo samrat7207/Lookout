@@ -29,10 +29,10 @@ function roster(state, recheck) {
     { n: 3, role: 'Deadline Reader', who: [], kind: 'code (parsers)', status: done(found > 0), what: plan ? `${plan.items.filter((i) => i.deadline).length} dated, ${plan.items.filter((i) => !i.deadline).length} "not published"` : 'inside each scout' },
     { n: 4, role: 'Eligibility Judge', who: ['profiler'], kind: 'code (rules)', what: plan ? `match ${fits.match ?? 0}, conditional ${fits.conditional ?? 0}, unclear ${fits.unclear ?? 0}, not applicable ${plan.notApplicable?.length ?? 0}` : (state.profile ? `${state.profile.unknown.length} unknowns from the Profiler` : '') },
     { n: 5, role: 'Ranker', who: [], kind: 'code', status: done(!!plan), what: plan ? `${plan.items.length} items: deadline, then fit` : '' },
-    { n: 6, role: 'Conflict Checker', who: [], kind: 'code', status: done(!!plan), what: plan ? `${plan.conflicts?.length ?? 0} conflicts, ${(plan.conflicts ?? []).filter((c) => c.officialRule).length} quoting a fetched rule` : '' },
-    { n: 7, role: 'Kit Builder', who: [], kind: 'code', status: done((ec['kit.ready'] ?? 0) > 0), what: `${ec['kit.ready'] ?? 0} read-only kits` },
-    { n: 8, role: 'Verifier (Inspector)', who: ['verifier'], kind: 'TinyFish Fetch (re-fetch)', what: v.length ? `verified ${tally('verified')}, changed ${tally('changed')}, could not verify ${tally('unverified')}` : 'no results yet' },
-    { n: 9, role: 'Gatekeeper (Traffic warden)', who: ['gatekeeper'], kind: 'code around TinyFish', what: `cache hits ${state.gate.hits}, misses ${state.gate.misses}, backoffs ${state.gate.rateLimited}, blocked ${state.gate.blocked}, fallbacks ${state.gate.fallbacks}` },
+    { n: 6, role: "Conflict Checker (Auditor's Office)", who: state.agents['conflict-checker'] ? ['conflict-checker'] : [], kind: 'code', status: state.agents['conflict-checker'] ? undefined : done(!!plan), what: state.conflictChecks.length ? `${state.conflictChecks.length} rules checked, ${state.conflictChecks.filter((c) => c.result === 'warning').length} may not be combinable, ${state.conflictChecks.filter((c) => c.officialRule).length} quoting a fetched rule${state.conflictChecks.some((c) => c.derived) ? ' (rebuilt from the recording)' : ''}` : plan ? `${plan.conflicts?.length ?? 0} conflicts` : '' },
+    { n: 7, role: 'Kit Builder (Application Desk)', who: state.agents['kit-builder'] ? ['kit-builder'] : [], kind: 'code', status: state.agents['kit-builder'] ? undefined : done((ec['kit.ready'] ?? 0) > 0), what: `${state.kitBuilds} prepared, ${ec['kit.ready'] ?? 0} read-only kits ready${state.kitsRebuilt ? ' (rebuilt from the recording)' : ''}` },
+    { n: 8, role: 'Verifier (Inspection Office)', who: ['verifier'], kind: 'TinyFish Fetch (re-fetch)', what: v.length ? `verified ${tally('verified')}, changed ${tally('changed')}, could not verify ${tally('unverified')}` : 'no results yet' },
+    { n: 9, role: 'Gatekeeper (Checkpoint)', who: ['gatekeeper'], kind: 'code around TinyFish', what: `cache hits ${state.gate.hits}, misses ${state.gate.misses}, backoffs ${state.gate.rateLimited}, blocked ${state.gate.blocked}, fallbacks ${state.gate.fallbacks}` },
     {
       n: 10,
       role: 'Watchtower (Night guard)',
@@ -156,6 +156,12 @@ function ServerStatus() {
         <li>Default mode: <b>{h.mode}</b> · TinyFish key present: <b>{h.keyPresent}</b></li>
         {l && <li>Rate limits per IP: runs {l.runPerMinute}/min, re-checks {l.recheckPerMinute}/min, reads {l.readPerMinute}/min, open event streams {l.sseConnectionsPerIp}</li>}
         <li>Page cache: {h.cache.entries} entries ({Math.round(h.cache.bytes / 1024)} KB)</li>
+        {h.retention && (
+          <li>
+            Retention: saved runs, plan items and profile snapshots are deleted after <b>{h.retention.days} days</b> (at start and daily) · last purge:{' '}
+            {h.retention.lastPurgeAt ? `${new Date(h.retention.lastPurgeAt).toLocaleString('en-IN')} (${h.retention.lastRemoved?.runs ?? 0} runs removed)` : h.retention.lastError ? `failed (${h.retention.lastError})` : 'not yet'}
+          </li>
+        )}
         <li>Last run: {h.lastRunAt ? new Date(h.lastRunAt).toLocaleString('en-IN') : 'none since the server started'}</li>
       </ul>
     </section>

@@ -5,7 +5,8 @@ import * as recon from './fake/reconData.js';
 import { buildPlan } from './rank/ranker.js';
 import { buildKit } from './kit/buildKit.js';
 import { buildCriteria } from './profile/profiler.js';
-import { BRIEFING_MS, emitAssembly, emitHandoff } from './pipelineEvents.js';
+import { BRIEFING_MS, CORNER_AGENTS, emitAssembly, emitConflictChecks, emitHandoff, emitKits } from './pipelineEvents.js';
+import { CONFLICT_RULES } from './rank/conflicts.js';
 
 // The recon was taken on this date, so the fake run uses it as "today" and the
 // day counts match the data ("7 days left"). Live runs use the real IST date.
@@ -20,6 +21,7 @@ const AGENTS = {
   mayor: { name: 'Mayor Tara', role: 'Town Hall', building: 'townhall' },
   verifier: { name: 'Vera', role: 'Verifier', building: 'townhall' },
   profiler: { name: 'Priya', role: 'Profiler', building: 'townhall' },
+  ...CORNER_AGENTS,
 };
 
 /**
@@ -38,7 +40,7 @@ export async function runFake(run, opts = {}) {
   const sleep = (ms) => (pace > 0 ? new Promise((r) => setTimeout(r, ms * pace * (0.6 + Math.random() * 0.8))) : Promise.resolve());
 
   const scouts = ['nsp-scout', 'mahadbt-scout', 'foundations-scout', ...(opportunities ? ['opps-scout'] : [])];
-  const agentIds = [...scouts, 'watchman', 'mayor', 'verifier', 'profiler'];
+  const agentIds = [...scouts, 'watchman', 'mayor', 'verifier', 'profiler', 'kit-builder', 'conflict-checker'];
   const profiled = buildCriteria(profile);
   const found = [];
   const notes = [];
@@ -208,7 +210,7 @@ export async function runFake(run, opts = {}) {
   // Town Hall: final plan, then a kit for every scholarship in it.
   // Verifier: a mock run has no network, so nothing is re-checked, and the badges say so
   {
-    const emitV = (kind, payload, building = 'townhall') => run.emit(kind, { agentId: 'verifier', building, payload });
+    const emitV = (kind, payload, building = 'inspection') => run.emit(kind, { agentId: 'verifier', building, payload });
     const SOURCE_BUILDING = { nsp: 'nsp', mahadbt: 'mahadbt', buddy4study: 'foundations' };
     emitHandoff(run, { from: 'mayor', to: 'verifier', summary: `${planNow().items.length} plan items to re-check`, count: planNow().items.length, what: 'plan items' });
     emitV('agent.working', { tool: 'fetch', target: 'none (mock run)', label: 'Re-check plan items' });
@@ -222,17 +224,12 @@ export async function runFake(run, opts = {}) {
     emitHandoff(run, { from: 'verifier', to: 'mayor', summary: `0 re-checked, 0 changed, ${verification.size} not re-checked (mock)`, what: 'verifier results' });
   }
 
-  const kitIds = new Map();
   const scholarships = found.filter((o) => o.kind === 'scholarship');
   const firstPlan = planNow();
   const planned = new Set(firstPlan.items.map((i) => i.opportunityId));
   await sleep(500);
-  for (const opp of scholarships.filter((o) => planned.has(o.id))) {
-    const kit = buildKit(opp, profile, { today });
-    kitIds.set(opp.id, kit.id);
-    await sleep(200);
-    run.emit('kit.ready', { agentId: 'mayor', building: 'townhall', payload: kit });
-  }
+  const kitIds = await emitKits(run, scholarships.filter((o) => planned.has(o.id)), (opp) => buildKit(opp, profile, { today }), { pause: () => sleep(200) });
+  emitConflictChecks(run, planNow({ kitIds }), CONFLICT_RULES);
   run.emit('plan.ready', { agentId: 'mayor', building: 'townhall', payload: planNow({ kitIds }) });
   run.emit('run.complete', { payload: { durationMs: Date.now() - startedAt, findings: found.length, errors } });
 }

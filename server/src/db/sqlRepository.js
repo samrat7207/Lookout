@@ -189,6 +189,22 @@ export function createSqlRepository(driver) {
         return { runId: run.id, profileId, items: items.length };
       });
     },
+    /**
+     * Retention: deletes runs started before `cutoff` (ISO time), their plan items, and
+     * profile snapshots created before it that no remaining run uses. Never touches sources.
+     * Returns counts only.
+     */
+    purgeOlderThan(cutoff) {
+      return driver.transaction(async (q) => {
+        const planItems = await q('DELETE FROM plan_items WHERE run_id IN (SELECT id FROM runs WHERE started_at < $1) RETURNING id', [cutoff]);
+        const runs = await q('DELETE FROM runs WHERE started_at < $1 RETURNING id, profile_id', [cutoff]);
+        // a snapshot goes when it is old, or its runs were just purged, and no remaining run uses it
+        const ids = [...new Set(runs.map((r) => r.profile_id).filter(Boolean))];
+        const orIds = ids.length ? ` OR id IN (${ids.map((_, i) => `$${i + 2}`).join(', ')})` : '';
+        const profiles = await q(`DELETE FROM profiles WHERE (created_at < $1${orIds}) AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.profile_id = profiles.id) RETURNING id`, [cutoff, ...ids]);
+        return { runs: runs.length, planItems: planItems.length, profiles: profiles.length };
+      });
+    },
     close: () => driver.close(),
   };
 }

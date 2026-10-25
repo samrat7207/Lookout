@@ -87,6 +87,15 @@ export async function openRepository({ databaseUrl = process.env.DATABASE_URL, l
     planItems: wrap('planItems', ['addMany', 'listByRun']),
     sources: wrap('sources', ['upsertMany', 'list']),
     saveRun: (...a) => call((r) => r.saveRun.bind(r), a),
+    /** Retention purge on the store in use, and on the local fallback too if it was ever opened. */
+    async purgeOlderThan(cutoff) {
+      const out = await call((r) => r.purgeOlderThan.bind(r), [cutoff]);
+      if (primary && local) {
+        const l = await local.repo.purgeOlderThan(cutoff);
+        for (const k of Object.keys(out)) out[k] += l[k];
+      }
+      return out;
+    },
     async close() {
       await primary?.close().catch(() => {});
       await local?.repo.close().catch(() => {});

@@ -18,7 +18,14 @@ const PLACE_DEFS = {
   // the Cafeteria (handoffs) and the Library (the Librarian) face the inner roads
   cafeteria: { spot: [10.9, 0.0], walk: [8.8, 0.4], road: [7, 0.4] },
   library: { spot: [-10.2, 0.6], walk: [-8.8, 0.6], road: [-7, 0.6] },
+  // city v3 corners: reached along the ±21 roads (north pair from z = -21, south pair from x = ±21)
+  checkpoint: { spot: [-26.4, -24.2], walk: [-26.4, -22.8], road: [-26.4, -21] },
+  inspection: { spot: [27.6, -24.2], walk: [27.6, -22.8], road: [27.6, -21] },
+  appdesk: { spot: [-24.4, 28.6], walk: [-22.8, 28.6], road: [-21, 28.6] },
+  auditor: { spot: [24.4, 27.4], walk: [22.8, 27.4], road: [21, 27.4] },
 };
+// road lines agents may use: the inner grid plus the ±21 roads that lead to the corners
+const LINES = [-21, -7, 7, 21];
 // two agents meet at a Cafeteria table: one on each side
 const CAFE_SLOTS = [[-0.75, 0], [0.75, 0], [0, -0.75], [0, 0.75], [-0.75, 0.75], [0.75, -0.75]];
 // the assembly: a half ring on the plaza, facing the Mayor at the hall door
@@ -69,7 +76,7 @@ function roadGraph() {
     A.links.set(b, d);
     B.links.set(a, d);
   };
-  for (const ix of [-7, 7]) for (const iz of [-7, 7]) add(`x${ix},${iz}`, [ix, iz]);
+  for (const ix of LINES) for (const iz of LINES) add(`x${ix},${iz}`, [ix, iz]);
   for (const [id, def] of Object.entries(PLACE_DEFS)) {
     add(`${id}:walk`, def.walk);
     add(`${id}:road`, def.road);
@@ -82,7 +89,7 @@ function roadGraph() {
   });
   // connect consecutive road points along each inner road line
   const roadIds = [...nodes.values()].filter((n) => n.id.startsWith('x') || n.id.includes(':road'));
-  for (const c of [-7, 7]) {
+  for (const c of LINES) {
     const alongZ = roadIds.filter((n) => n.x === c).sort((a, b) => a.z - b.z);
     const alongX = roadIds.filter((n) => n.z === c).sort((a, b) => a.x - b.x);
     for (const line of [alongZ, alongX]) for (let i = 1; i < line.length; i++) link(line[i - 1].id, line[i].id);

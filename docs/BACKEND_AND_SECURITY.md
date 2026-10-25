@@ -33,6 +33,22 @@ What the server does today to store runs, protect itself and stay polite to the 
 
   A test against a real Postgres server runs only when `TEST_DATABASE_URL` is set. The live app has been run against a real Postgres server (2026-10-25, Live, Replay and Mock saved and read back); the automated test against one still needs `TEST_DATABASE_URL`.
 
+### Retention: 30-day auto purge (`server/src/db/retention.js`)
+- Deletes saved **runs**, their **plan items** and **profile snapshots** older than `RETENTION_DAYS` (default 30) from the repository: Postgres, plus the local fallback if it was opened. A snapshot is removed only when no remaining run uses it.
+- Runs once at server start and then once a day (in-process timer).
+- **Never deletes sources.** There are no user accounts yet.
+- Logs counts only (`retention: removed N runs, M plan items, K profile snapshots older than 30 days`), never row contents.
+- `/api/health` returns `retention: { days, lastPurgeAt, lastRemoved, lastError }`; the System view shows it too.
+- Tests: fake old rows are removed, while newer rows and sources survive, on the local store and the Postgres stand-in.
+- The JSON history (`server/.data/history.json`, last 20 runs) and the recordings are outside this purge.
+
+### Offline page cache (user side, `web/src/offline/`)
+- In production builds only, a service worker caches the built app shell (HTML, JS, CSS) in a versioned cache (`lookout-shell-<hash of the build and the worker>`). A new build installs a new cache and deletes the old one.
+- `/api/*` and the SSE stream are **never** cached. They always go to the network.
+- When `/api/health` cannot be reached, a banner says: "Server unreachable. Showing the cached page. Live runs need the server."
+- This cache lives on the user's device. Once the frontend is deployed, a **CDN** would sit in front of it. That is planned, not built.
+- Not registered in dev (`npm run dev`).
+
 ### Security layer (`server/src/security.js`)
 - **Headers:** `helmet` with a strict Content-Security-Policy for the API (`default-src 'none'`), `nosniff`, no `X-Powered-By`.
 - **CORS allowlist:**
@@ -77,7 +93,7 @@ Every backoff is a `rate.limited` event, and every block is a `blocked` event.
 
 ## Planned (not implemented)
 
-**None of these exist in Lookout today. There is no CDN, no load balancer and no TEE.** Today Lookout is one Node process on one machine, plus the Vite dev server.
+**None of these exist in Lookout today. There is no CDN, no load balancer, no TEE, no login or sign-up, and no Terms and Conditions.** Today Lookout is one Node process on one machine, plus the Vite dev server.
 
 | Planned | Why | What it needs first |
 |---|---|---|
@@ -86,4 +102,6 @@ Every backoff is a `rate.limited` event, and every block is a `blocked` event.
 | **Shared event store, or sticky routing, for SSE** | A browser's event stream must reach the process that holds the run. | Either sticky sessions on the load balancer (simplest), or a shared event log (Postgres or Redis pub/sub) that any instance can replay with `Last-Event-ID`. |
 | **Postgres row-level security** | When real students have accounts, each one must only ever read their own profiles, runs and items, even if an API bug forgets a filter. | User accounts and an owner column on `profiles` and `runs`, then RLS policies keyed on the session's user. Today there are no accounts: one sample profile. |
 | **TEE-based confidential computing for the sensitive profile** | Income and category are sensitive. Running the Judge inside a trusted execution environment would keep them encrypted even from the server's operators. | Real student profiles, a TEE-capable host, and remote attestation. Today the profile is the labelled "sample student"; we never collect names, Aadhaar numbers, passwords, OTPs or bank details. |
+| Login and sign-up | Per-student saved runs and profiles. | An auth provider and accounts, then RLS (above). |
+| Terms and Conditions | Needed before real students sign up. | Legal review, written alongside login. |
 | Scheduled Watchtower re-checks (TinyFish Monitor) | Tell students when a date changes, without them pressing "Re-check now". | Notifications and a job runner. |

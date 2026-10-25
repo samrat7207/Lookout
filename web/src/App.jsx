@@ -10,6 +10,7 @@ import { BriefingCard } from './ui/BriefingCard.jsx';
 import { ProfileForm } from './ui/ProfileForm.jsx';
 import { HistoryDrawer } from './ui/HistoryDrawer.jsx';
 import { Guide } from './ui/Guide.jsx';
+import { ServerBanner } from './offline/ServerBanner.jsx';
 
 const TECH = new URLSearchParams(window.location.search).has('tech');
 const GUIDED = new URLSearchParams(window.location.search).has('guided');
@@ -108,6 +109,7 @@ export default function App() {
       <div className="sky" aria-hidden />
       <City state={state} playback={playback} selected={selected} onSelect={select} theme={theme} />
       <BriefingCard state={state} />
+      <ServerBanner />
       <header className="brand">
         <h1>Lookout</h1>
         <p>Scholarship Season · sample student: B.Tech CE, 2nd year, OBC, Maharashtra</p>

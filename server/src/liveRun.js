@@ -21,7 +21,7 @@ import { verifyItems } from './verify/verifier.js';
 import { buildCriteria } from './profile/profiler.js';
 import { notCheckedVerdict, profileSupport } from './profile/support.js';
 import { assessEvent, parseDevpost, parseHackerEarth } from './parse/opps.js';
-import { BRIEFING_MS, emitAssembly, emitHandoff } from './pipelineEvents.js';
+import { BRIEFING_MS, CORNER_AGENTS, emitAssembly, emitConflictChecks, emitHandoff, emitKits } from './pipelineEvents.js';
 
 export const DEVPOST_FEED = 'https://devpost.com/api/hackathons?status[]=upcoming&status[]=open';
 export const HACKEREARTH_FEED = 'https://www.hackerearth.com/chrome-extension/events/';
@@ -61,6 +61,7 @@ const AGENTS = {
   gatekeeper: { name: 'Gita', role: 'Gatekeeper', building: 'townhall' },
   verifier: { name: 'Vera', role: 'Verifier', building: 'townhall' },
   profiler: { name: 'Priya', role: 'Profiler', building: 'townhall' },
+  ...CORNER_AGENTS,
 };
 
 // where each source's items live in the city (for verify.result events)
@@ -110,7 +111,7 @@ export async function runLive(run, opts = {}) {
     run.emit('agent.spawned', { agentId: id, building: 'townhall', payload: { name: AGENTS[id].name, role: AGENTS[id].role } });
   }
   // the Gatekeeper owns cache.hit / cache.miss / rate.limited / blocked / fallback
-  gk.attach((kind, payload) => run.emit(kind, { agentId: 'gatekeeper', building: 'townhall', payload }));
+  gk.attach((kind, payload) => run.emit(kind, { agentId: 'gatekeeper', building: 'checkpoint', payload }));
 
   // Profiler: profile -> criteria for the Judge, plus the facts we do not know
   const profiled = buildCriteria(profile);
@@ -437,7 +438,7 @@ export async function runLive(run, opts = {}) {
 
   // Verifier: re-fetch every plan item's source (cache bypassed) and check name + deadline
   {
-    const emitV = (kind, payload, building = 'townhall') => run.emit(kind, { agentId: 'verifier', building, payload });
+    const emitV = (kind, payload, building = 'inspection') => run.emit(kind, { agentId: 'verifier', building, payload });
     const items = planNow().items;
     const t0 = Date.now();
     emitHandoff(run, { from: 'mayor', to: 'verifier', summary: `${items.length} plan items to re-check`, count: items.length, what: 'plan items' });
@@ -451,14 +452,10 @@ export async function runLive(run, opts = {}) {
     emitHandoff(run, { from: 'verifier', to: 'mayor', summary: `${tally.verified} re-checked, ${tally.changed} changed, ${tally.unverified} not re-checked`, what: 'verifier results' });
   }
 
-  const kitIds = new Map();
   const planned = new Set(planNow().items.map((i) => i.opportunityId));
-  for (const o of found.filter((x) => x.kind === 'scholarship' && planned.has(x.id))) {
-    const kit = buildKit(o, profile, { today });
-    kitIds.set(o.id, kit.id);
-    run.emit('kit.ready', { agentId: 'mayor', building: 'townhall', payload: kit });
-  }
+  const kitIds = await emitKits(run, found.filter((x) => x.kind === 'scholarship' && planned.has(x.id)), (o) => buildKit(o, profile, { today }));
+  emitConflictChecks(run, planNow({ kitIds }), CONFLICT_RULES);
   mayorPlan('plan.ready', { kitIds });
-  run.emit('agent.done', { agentId: 'gatekeeper', building: 'townhall', payload: { findings: 0, durationMs: Date.now() - startedAt, ...gk.stats() } });
+  run.emit('agent.done', { agentId: 'gatekeeper', building: 'checkpoint', payload: { findings: 0, durationMs: Date.now() - startedAt, ...gk.stats() } });
   run.emit('run.complete', { payload: { durationMs: Date.now() - startedAt, findings: found.length, errors, gatekeeper: gk.stats() } });
 }

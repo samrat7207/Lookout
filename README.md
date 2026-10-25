@@ -21,6 +21,8 @@ Built in 6 stages ([docs/MILESTONES.md](docs/MILESTONES.md)).
 | UI polish (Part B) | ✅ run history with compare, deadline timeline, print and `.ics` export (fetched dates only), filters and search, editable profile with a Judge and Ranker re-run, guided captions (`?guided`), Day / Dusk / Cycle theme with a filmic colour grade |
 | City v2 | ✅ every movement comes from an event: Town Hall assembly and briefing card (`run.assembled`, `plan.split`), handoffs at the new Cafeteria (`handoff`, emitted where data really passes), the Library and Librarian (last run for this profile, "Since your last run" on the plan), a 5×5 city with four districts; a prototype profile form for Live runs (profiles outside Maharashtra / OBC / B.Tech / 2nd year are shown as "not checked") |
 | Backend layer | ✅ runs saved to Postgres (`DATABASE_URL`) or a local SQLite fallback, automatic fallback shown in `/api/health`; helmet, CORS allowlist, zod validation, safe errors and logs; inbound rate limits (429 + `Retry-After`). CDN, load balancer and TEE are **planned, not built** ([docs/BACKEND_AND_SECURITY.md](docs/BACKEND_AND_SECURITY.md)) |
+| City v3 | ✅ four corner districts, each tied to real work: **Checkpoint** (Gatekeeper: cache hits, backoffs, blocked, fallbacks), **Inspection Office** (Verifier: re-checked, changed, could not verify), **Application Desk** (Kit Builder: new `kit.building` events), **Auditor's Office** (Conflict Checker: new `conflict.check` events). Older recordings get these rebuilt from their own data and marked "rebuilt from the recording". **Offline page cache**: a service worker (production builds only) keeps the built page so it opens when the server is down; `/api` and SSE are never cached. **30-day auto purge** of saved runs, plan items and profile snapshots (`RETENTION_DAYS`) |
+| Planned, not built | load balancer, CDN, login and sign-up, Terms and Conditions |
 | 6 Polish and rehearsal | partly: LIVE / REPLAY / MOCK with an automatic fallback, a System view (`?tech`), and the API documented in [docs/API.md](docs/API.md) |
 
 ## Team
@@ -91,8 +93,9 @@ Tests:
 
 ```sh
 cd server && npm test    # parsers, ranker, Gatekeeper, Verifier, Watchtower, Profiler, history and re-judge, API, live run on fixtures, fallback, SSE, replay,
-                         # database (local, Postgres stand-in, fallback), validation, errors, logging, CORS, rate limits (62 pass; 1 needs TEST_DATABASE_URL)
-cd web && npm test       # event reducer, timeline, filters, .ics export (8)
+                         # database (local, Postgres stand-in, fallback), validation, errors, logging, CORS, rate limits (80 pass; 1 needs TEST_DATABASE_URL)
+cd web && npm test       # event reducer, corner agents, paths, service worker, timeline, filters, .ics export (13)
+cd web && npm run build && npm run preview   # production build on :4173 with the offline page cache
 ```
 
 Raw stream, without the city:

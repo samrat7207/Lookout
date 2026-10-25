@@ -230,3 +230,11 @@ plan.ready
 kit.ready ×N        mayor  one per scholarship in the plan
 run.complete
 ```
+
+## City v3 additions
+| Kind | When | Payload |
+|---|---|---|
+| `kit.building` | The Kit Builder starts one Application Kit (agent `kit-builder`, building `appdesk`); `kit.ready` follows from the same agent | `{ opportunityId, title, derived?, note? }` |
+| `conflict.check` | One per conflict rule, after the final plan (agent `conflict-checker`, building `auditor`) | `{ ruleId, title, result: "warning" or "clear", ids, officialRule: bool, derived?, note? }` |
+
+Gatekeeper events now carry `building: "checkpoint"`, and the Verifier's `agent.working` carries `building: "inspection"`. Recordings made before these events existed are upgraded on replay by `upgradeCorners` in `server/src/pipelineEvents.js`: the new events are rebuilt only from that recording's own `kit.ready` and `plan.ready`, marked `derived: true, note: "rebuilt from the recording"`. The recording file is never changed.

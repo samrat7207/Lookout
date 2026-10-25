@@ -16,6 +16,7 @@ import { istToday } from './rank/ranker.js';
 import { createHistory, diffPlans, entryFromRun, HISTORY_FILE, summarize } from './history/history.js';
 import { rejudgePlan } from './rank/rejudge.js';
 import { openRepository } from './db/index.js';
+import { startRetention } from './db/retention.js';
 import { attachLibrarian } from './librarian.js';
 import { rowsFromEntry, unknownFields } from './db/fromRun.js';
 import { createLimiters, limitSettings } from './limits.js';
@@ -121,7 +122,7 @@ function planOf(run) {
  *   db?: Parameters<typeof openRepository>[0] | Promise<Awaited<ReturnType<typeof openRepository>>> }} [opts]
  *   db: options for openRepository, or an already opened repository (tests); origins: the CORS allowlist;
  *   limits: rate-limit settings (limitSettings() shape) */
-export function createApp({ record = true, client, cacheDir, historyFile = process.env.LOOKOUT_HISTORY_FILE || HISTORY_FILE, db, origins = allowedOrigins(), limits = limitSettings() } = {}) {
+export function createApp({ record = true, client, cacheDir, historyFile = process.env.LOOKOUT_HISTORY_FILE || HISTORY_FILE, db, origins = allowedOrigins(), limits = limitSettings(), retention: retentionOpts = {} } = {}) {
   const app = express();
   app.disable('x-powered-by');
   if (process.env.TRUST_PROXY) app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? true : process.env.TRUST_PROXY);
@@ -137,6 +138,8 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
     return null;
   });
   app.locals.repo = repoReady;
+  const retention = startRetention(repoReady, retentionOpts);
+  app.locals.retention = retention;
   app.use(express.json({ limit: '100kb' }));
   // runs and re-checks have their own tighter limits; everything else under /api the read limit
   app.use('/api', (req, res, next) => (req.method === 'POST' && /^\/(runs?|recheck)\/?$/.test(req.path) ? next() : limiter.read(req, res, next)));
@@ -156,6 +159,7 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
       cache: cacheStats(cacheDirUsed),
       limits: { ...limiter.settings, openEventStreams: limiter.openStreams() },
       database: await repoReady.then((r) => r?.info() ?? { kind: 'none', fallbackReason: 'database unavailable; the JSON history is used' }),
+      retention: (({ days, lastPurgeAt, lastRemoved, lastError }) => ({ days, lastPurgeAt, lastRemoved, lastError }))(retention.status()),
       lastRunAt: lastRun?.finishedAt ?? lastRun?.startedAt ?? null,
       lastRun,
     });

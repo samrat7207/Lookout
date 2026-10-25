@@ -156,6 +156,12 @@ function ServerStatus() {
         <li>Default mode: <b>{h.mode}</b> · TinyFish key present: <b>{h.keyPresent}</b></li>
         {l && <li>Rate limits per IP: runs {l.runPerMinute}/min, re-checks {l.recheckPerMinute}/min, reads {l.readPerMinute}/min, open event streams {l.sseConnectionsPerIp}</li>}
         <li>Page cache: {h.cache.entries} entries ({Math.round(h.cache.bytes / 1024)} KB)</li>
+        {h.retention && (
+          <li>
+            Retention: saved runs, plan items and profile snapshots are deleted after <b>{h.retention.days} days</b> (at start and daily) · last purge:{' '}
+            {h.retention.lastPurgeAt ? `${new Date(h.retention.lastPurgeAt).toLocaleString('en-IN')} (${h.retention.lastRemoved?.runs ?? 0} runs removed)` : h.retention.lastError ? `failed (${h.retention.lastError})` : 'not yet'}
+          </li>
+        )}
         <li>Last run: {h.lastRunAt ? new Date(h.lastRunAt).toLocaleString('en-IN') : 'none since the server started'}</li>
       </ul>
     </section>

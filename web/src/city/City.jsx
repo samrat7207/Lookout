@@ -6,7 +6,6 @@ import { buildCity } from './buildCity.js';
 import { InstancedBatch } from './InstancedBatch.jsx';
 import { LandmarkLabels, Landmarks } from './Landmarks.jsx';
 import { Beacon } from './Beacon.jsx';
-import { Citizens } from './Citizens.jsx';
 import { AgentTags, Agents, BuildingEffects } from './Agents.jsx';
 import { Signs } from './Signs.jsx';
 import { LANDMARKS } from './layout.js';
@@ -241,7 +240,7 @@ function RenderStats() {
 
 /** The 3D city plus its DOM overlays. All run-driven visuals come from `state` (the reducer). */
 export default function City({ state, playback, selected, onSelect, theme = 'day' }) {
-  const { batch, benches, lamps } = useMemo(buildCity, []);
+  const { batch, lamps } = useMemo(buildCity, []);
   const showStats = useMemo(() => new URLSearchParams(window.location.search).has('stats'), []);
   const [hover, setHover] = useState(null);
 
@@ -264,7 +263,6 @@ export default function City({ state, playback, selected, onSelect, theme = 'day
         <CompassTracker />
         <InstancedBatch batch={batch} />
         <Signs />
-        <Citizens benches={benches} />
         <Beacon />
         <TileShadow />
         <BuildingEffects state={state} playback={playback} />

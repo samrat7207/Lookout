@@ -1,51 +1,8 @@
-// Walkable paths. Citizens use the sidewalk graph (block corners plus crosswalks);
-// agents use the road graph (inner road lines) between Town Hall and the landmarks.
+// Walkable paths for the agents (the only people in the city, and they move only on
+// events): the road graph (inner road lines) between Town Hall and the landmarks.
 // Pure data and maths, no three.js, so it can be unit tested.
 
-import { BLOCK_CENTERS, KERB_H, LOT_TOP, ROAD_TOP } from './layout.js';
-
-// ---------- sidewalks (citizens) ----------
-
-export const SIDEWALK_E = 5.2; // sidewalk centre line, from the block centre
-export const SIDEWALK_Y = KERB_H;
-export const CROSSING_Y = ROAD_TOP;
-
-/** Nodes are block corners; edges run around each block and across the inner roads at the crosswalks. */
-export function sidewalkGraph() {
-  const nodes = [];
-  const index = new Map();
-  const key = (x, z) => `${x},${z}`;
-  for (const bx of BLOCK_CENTERS) {
-    for (const bz of BLOCK_CENTERS) {
-      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
-        const x = bx + sx * SIDEWALK_E, z = bz + sz * SIDEWALK_E;
-        index.set(key(x, z), nodes.length);
-        nodes.push({ x, z, links: [] });
-      }
-    }
-  }
-  const link = (a, b, crossing) => {
-    nodes[a].links.push({ to: b, crossing });
-    nodes[b].links.push({ to: a, crossing });
-  };
-  const at = (x, z) => index.get(key(x, z));
-  for (const bx of BLOCK_CENTERS) {
-    for (const bz of BLOCK_CENTERS) {
-      const e = SIDEWALK_E;
-      const c = [at(bx - e, bz - e), at(bx + e, bz - e), at(bx + e, bz + e), at(bx - e, bz + e)];
-      for (let i = 0; i < 4; i++) link(c[i], c[(i + 1) % 4], false);
-    }
-  }
-  // crosswalks: corner to the facing corner of the neighbouring block (inner roads only)
-  for (const n of nodes) {
-    for (const [dx, dz] of [[1, 0], [0, 1]]) {
-      const gap = 14 - 2 * SIDEWALK_E;
-      const j = at(n.x + dx * gap, n.z + dz * gap);
-      if (j !== undefined) link(nodes.indexOf(n), j, true);
-    }
-  }
-  return nodes;
-}
+import { KERB_H, LOT_TOP, ROAD_TOP } from './layout.js';
 
 // ---------- roads (agents) ----------
 

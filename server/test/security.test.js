@@ -32,6 +32,8 @@ test('validation: wrong types on every POST body give 400 with field paths, and 
       ['/api/rejudge', { historyId: 'x', profile: { familyIncome: 'a lot' } }, 'profile.familyIncome'],
       ['/api/recheck', { items: [{ title: 'x', sourceUrl: 'javascript:alert(1)' }] }, 'items.0.sourceUrl'],
       ['/api/recheck', { items: 'all' }, 'items'],
+      ['/api/run', { mode: 'live', profile: { source: 'form', state: '<script>' } }, 'profile.state'],
+      ['/api/run', { mode: 'live', profile: { source: 'form', incomeBand: 'rich' } }, 'profile.incomeBand'],
     ];
     for (const [path, body, field] of cases) {
       const res = await send(`${base}${path}`, body);

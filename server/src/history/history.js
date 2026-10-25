@@ -44,6 +44,15 @@ export function createHistory(file = HISTORY_FILE, limit = HISTORY_LIMIT) {
   return {
     list: () => read(),
     get: (id) => read().find((e) => e.id === id) ?? null,
+    remove(id) {
+      const all = read();
+      const next = all.filter((e) => e.id !== id);
+      if (next.length === all.length) return false;
+      mkdirSync(dirname(file), { recursive: true });
+      writeFileSync(`${file}.tmp`, JSON.stringify(next));
+      renameSync(`${file}.tmp`, file);
+      return true;
+    },
     add(entry) {
       const next = [entry, ...read().filter((e) => e.id !== entry.id)].slice(0, limit);
       mkdirSync(dirname(file), { recursive: true });

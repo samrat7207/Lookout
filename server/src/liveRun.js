@@ -19,6 +19,7 @@ import { buildPlan, istToday } from './rank/ranker.js';
 import { buildKit } from './kit/buildKit.js';
 import { verifyItems } from './verify/verifier.js';
 import { buildCriteria } from './profile/profiler.js';
+import { notCheckedVerdict, profileSupport } from './profile/support.js';
 import { assessEvent, parseDevpost, parseHackerEarth } from './parse/opps.js';
 import { BRIEFING_MS, emitAssembly, emitHandoff } from './pipelineEvents.js';
 
@@ -114,6 +115,11 @@ export async function runLive(run, opts = {}) {
   // Profiler: profile -> criteria for the Judge, plus the facts we do not know
   const profiled = buildCriteria(profile);
   const criteria = profiled.criteria;
+  // the rules only cover the sample student's case; other profiles get "not checked"
+  const support = profileSupport(profile);
+  profiled.support = support;
+  const judgeName = (name, c) => (support.supported ? assessByName(name, c) : notCheckedVerdict(support));
+  const judgePage = (title, text, c) => (support.supported ? assessPageText(title, text, c) : notCheckedVerdict(support));
   run.emit('profile.ready', { agentId: 'profiler', building: 'townhall', payload: profiled });
   run.emit('agent.done', { agentId: 'profiler', building: 'townhall', payload: { findings: 0, durationMs: 0, unknown: profiled.unknown.length } });
   // the criteria go to the Mayor, who runs the Judge for every scout's findings
@@ -139,6 +145,11 @@ export async function runLive(run, opts = {}) {
       work: (tool, target, label) => emit('agent.working', { tool, target, label }),
       progress: (text, tool) => emit('agent.progress', { text, ...(tool && { tool }) }),
       found: (opp) => {
+        // scholarships with a fixed rule (the MahaDBT OBC schemes) are not checked either
+        if (!support.supported && !opp.note && opp.kind === 'scholarship' && opp.fit !== 'unclear') {
+          const v = notCheckedVerdict(support);
+          Object.assign(opp, { fit: v.fit, why: v.reason, matchReason: v.reason, needsVerification: true });
+        }
         if (!opp.note) found.push(opp);
         emit('agent.found', opp);
       },
@@ -232,7 +243,7 @@ export async function runLive(run, opts = {}) {
       const schemes = parseAllScholarships(list.text);
       const kept = [];
       for (const s of schemes) {
-        const fit = assessByName(s.name, criteria);
+        const fit = judgeName(s.name, criteria);
         // keep the fetched fields, so a re-judge with an edited profile can bring it back without guessing
         if (fit.fit === 'not_applicable') notApplicable.push({ title: s.name, reason: fit.reason, sourceUrl: NSP_ALL_SCHOLARSHIPS_URL, checkedAt: list.checkedAt, kind: 'scholarship', source: 'nsp', opportunityId: `nsp:${s.slug}`, deadline: s.applyTill, deadlineLabel: 'Student application closes', dateSource: s.applyTill ? 'parsed' : 'none', evidence: s.evidence });
         else kept.push([s, fit]);
@@ -291,7 +302,7 @@ export async function runLive(run, opts = {}) {
         dateSource: 'none',
       }));
     }
-    for (const s of recon.MAHADBT_SKIPPED) {
+    for (const s of support.supported ? recon.MAHADBT_SKIPPED : []) {
       notApplicable.push({ title: s.title, reason: `${s.reason[0].toUpperCase()}${s.reason.slice(1)} (rule read on 2026-10-24).`, sourceUrl: s.sourceUrl, checkedAt: recon.RECON_CHECKED_AT });
     }
     // MahaDBT 2.0 failed twice in recon; one honest try, no retries loop
@@ -327,7 +338,7 @@ export async function runLive(run, opts = {}) {
           notApplicable.push({ title, reason: `Closed: the last deadline on the page (${p.pastDeadline}) has passed.`, sourceUrl: url, checkedAt: page.checkedAt });
           continue;
         }
-        const fit = assessPageText(title, p.main, criteria);
+        const fit = judgePage(title, p.main, criteria);
         if (fit.fit === 'not_applicable') {
           notApplicable.push({ title, reason: fit.reason, sourceUrl: url, checkedAt: page.checkedAt });
           continue;

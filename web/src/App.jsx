@@ -7,6 +7,7 @@ import { SideCard } from './ui/SideCard.jsx';
 import { PlanScreen } from './ui/PlanScreen.jsx';
 import { SystemView } from './ui/SystemView.jsx';
 import { BriefingCard } from './ui/BriefingCard.jsx';
+import { ProfileForm } from './ui/ProfileForm.jsx';
 import { HistoryDrawer } from './ui/HistoryDrawer.jsx';
 import { Guide } from './ui/Guide.jsx';
 
@@ -32,6 +33,8 @@ export default function App() {
   const [recheck, setRecheck] = useState(null); // Watchtower result for the current plan
   useEffect(() => setRecheck(null), [state.runId]);
   const [histOpen, setHistOpen] = useState(false);
+  const [formProfile, setFormProfile] = useState(null); // the profile form (Live runs only)
+  const [formOpen, setFormOpen] = useState(false);
   const [guided, setGuided] = useState(GUIDED);
   // a plan shown instead of the live one: a saved run from the history, or a re-judged plan
   const [view, setView] = useState(null);
@@ -119,11 +122,14 @@ export default function App() {
         <button type="button" className="btn brand__toggle" aria-pressed={histOpen} onClick={() => setHistOpen((v) => !v)}>
           🕘 History
         </button>
+        <button type="button" className="btn brand__toggle" aria-pressed={formOpen} onClick={() => setFormOpen((v) => !v)}>
+          👤 {formProfile ? 'Your profile (Live)' : 'Profile: sample student'}
+        </button>
       </header>
       <RunBar
         state={state}
         playback={playback}
-        start={start}
+        start={(m, s) => start(m, s, m === 'live' ? formProfile : null)}
         control={control}
         startError={startError}
         health={health}
@@ -137,6 +143,17 @@ export default function App() {
       <EventLog state={state} onSelect={select} />
       <SideCard selected={selected} state={state} onClose={() => setSelected(null)} />
       {sysOpen && <SystemView state={state} recheck={recheck} onClose={() => setSysOpen(false)} />}
+      {formOpen && (
+        <ProfileForm
+          value={formProfile}
+          mode={mode ?? 'replay'}
+          onClose={() => setFormOpen(false)}
+          onSave={(p) => {
+            setFormProfile(p);
+            setFormOpen(false);
+          }}
+        />
+      )}
       {histOpen && <HistoryDrawer onClose={() => setHistOpen(false)} onOpen={openHistory} />}
       {planOpen && (
         <PlanScreen

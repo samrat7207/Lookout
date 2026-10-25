@@ -134,6 +134,27 @@ test('live run (stub client): assembly, split and real handoffs between agents',
   assert.ok(handoffs.every((x) => !x.derived), 'live handoffs are real, not derived');
 });
 
+test('profile form: a profile outside our rules gets no confident verdicts; blanks stay unknown', async () => {
+  const { profileFromBody } = await import('../src/app.js');
+  const p = profileFromBody({ source: 'form', state: 'Delhi', category: 'SC', course: 'btech', year: 3, gender: '' });
+  assert.equal(p.gender, undefined, 'blank stays unknown, never filled from the sample student');
+  assert.equal(p.label, 'your profile');
+  const run = createRun();
+  await runLive(run, { client: stubClient(), today: TODAY, cacheDir: null, briefMs: 0, profile: p });
+  const plan = run.history.findLast((e) => e.kind === 'plan.ready').payload;
+  const schol = plan.items.filter((i) => i.kind === 'scholarship');
+  assert.ok(schol.length > 0);
+  assert.ok(schol.every((i) => i.fit === 'unclear' && i.needsVerification && /Not checked for this profile/.test(i.why)), 'no match or conditional for an uncovered profile');
+  assert.equal(plan.profile.support.supported, false);
+  assert.deepEqual(plan.profile.support.reasons, ['state Delhi', 'category SC', 'year 3']);
+
+  const covered = createRun();
+  await runLive(covered, { client: stubClient(), today: TODAY, cacheDir: null, briefMs: 0, profile: profileFromBody({ source: 'form', state: 'Maharashtra', category: 'OBC', course: 'btech', year: 2, gender: 'male' }) });
+  const plan2 = covered.history.findLast((e) => e.kind === 'plan.ready').payload;
+  assert.equal(plan2.profile.support.supported, true);
+  assert.ok(plan2.items.some((i) => i.fit === 'conditional' && !/Not checked/.test(i.why)), 'the covered profile keeps the real rules');
+});
+
 test('live run with a bad key throws before emitting anything', async () => {
   const run = createRun();
   await assert.rejects(runLive(run, { client: stubClient({ failSearch: { code: 'HTTP_401', message: 'unauthorized', status: 401 } }), today: TODAY, cacheDir: null }), LiveUnavailableError);

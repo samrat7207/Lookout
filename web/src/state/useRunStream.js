@@ -96,11 +96,11 @@ export function useRunStream() {
   }, [runId]);
 
   /** Starts a run: mode live | replay | mock (the server falls back from live to replay by itself). */
-  const start = useCallback(async (mode, speed = playback.speed) => {
+  const start = useCallback(async (mode, speed = playback.speed, profile = null) => {
     setStartError(null);
     dispatch({ kind: 'local.reset', starting: true });
     try {
-      const { runId: id, control } = await post('/api/runs', { mode, speed });
+      const { runId: id, control } = await post('/api/runs', { mode, speed, ...(profile && { profile }) });
       store(id);
       setPlayback(control ?? { paused: false, speed });
       setRunId(id);

@@ -33,7 +33,7 @@ export function cors(origins) {
       return res.status(403).json({ error: 'origin not allowed' });
     }
     res.set('Access-Control-Allow-Origin', origin);
-    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Last-Event-ID');
     res.set('Access-Control-Max-Age', '600');
     if (req.method === 'OPTIONS') return res.status(204).end();
@@ -60,13 +60,16 @@ const profile = z
     label: z.string().max(80).optional(),
     gender: z.enum(['male', 'female']).optional(),
     category: z.enum(['OBC', 'SC', 'ST', 'General', 'EWS']).optional(),
-    state: z.string().max(60).optional(),
-    course: z.string().max(40).optional(),
+    state: z.string().max(60).regex(/^[A-Za-z][A-Za-z &.-]*$/, 'letters and spaces only').optional(),
+    course: z.string().max(40).regex(/^[\w-]+$/).optional(),
     courseLabel: z.string().max(120).optional(),
     branch: z.string().max(120).optional(),
     year: z.number().int().min(1).max(6).optional(),
     disability: z.boolean().optional(),
     familyIncome: z.union([z.number().min(0).max(1e9), z.literal(''), z.null()]).optional(),
+    // the profile form: only these facts, each optional (blank stays unknown)
+    source: z.literal('form').optional(),
+    incomeBand: z.enum(['upto-2.5L', '2.5L-4.5L', '4.5L-8L', 'above-8L']).optional(),
     capAdmission: tri,
     domicileProof: tri,
   })

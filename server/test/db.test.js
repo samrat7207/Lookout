@@ -174,6 +174,11 @@ test('API: with an unreachable database the app keeps running, health says local
     assert.ok(one.items.length > 0 && one.items.every((i) => i.sourceUrl && i.lastChecked));
     assert.ok(one.unknown.includes('familyIncome'));
     assert.equal((await fetch(`${base}/api/runs/nope`)).status, 404);
+    // delete this run: rows and history entry go, a second delete is 404
+    const del = await fetch(`${base}/api/runs/${runId}`, { method: 'DELETE' }).then((r) => r.json());
+    assert.deepEqual(del, { deleted: runId, database: true, history: true });
+    assert.equal((await fetch(`${base}/api/runs/${runId}`)).status, 404);
+    assert.equal((await fetch(`${base}/api/runs/${runId}`, { method: 'DELETE' })).status, 404);
   } finally {
     server.closeAllConnections?.();
     server.close();

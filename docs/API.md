@@ -20,7 +20,7 @@ Content-Type: application/json
 | `mode` | `live` \| `replay` \| `mock` (also `fake`, used by tests) | Default from `MODE` in `server/.env`. If that is empty: `live` with a key, else `replay`. |
 | `speed` | 0 to 16 | Replays only. |
 | `recording` | a file name in `recordings/` | Replay only. Defaults to `real-run`. |
-| `profile` | partial profile | Merged over the sample student. The profile is not stored anywhere except inside this run's events. |
+| `profile` | partial profile | Merged over the sample student. When the run completes, the matching facts (state, category, course, year, gender, disability, income, CAP, domicile; unknown ones as null) are saved with the run in the database. No name, contact or ID numbers. |
 
 **live** reads NSP, MahaDBT 1.0, Buddy4Study, and the Devpost and HackerEarth feeds through TinyFish Search and Fetch. It falls back to the last recording if the key is missing or TinyFish answers 401 or 403, or is unreachable at the start. The first event is then `run.mode` with `fallbackReason`.
 
@@ -115,13 +115,16 @@ Errors: `503` without a key; `400` without a usable runId or items; `502` if Tin
 ## GET /api/health
 
 ```json
-{ "ok": true, "modes": ["live", "replay", "mock", "fake"], "defaultMode": "live",
-  "tinyfishKeyPresent": true, "lastRecording": "real-run", "opportunities": true,
+{ "ok": true, "mode": "live", "modes": ["live", "replay", "mock", "fake"], "defaultMode": "live",
+  "keyPresent": "yes", "tinyfishKeyPresent": true, "lastRecording": "real-run", "opportunities": true,
   "cache": { "entries": 19, "bytes": 141918 },
+  "limits": { "windowMs": 60000, "runPerMinute": 10, "recheckPerMinute": 10, "readPerMinute": 300, "sseConnectionsPerIp": 6, "openEventStreams": 0 },
+  "database": { "kind": "local", "engine": "sqlite", "fallbackReason": null, "switchedAt": null },
+  "lastRunAt": "…",
   "lastRun": { "runId": "run_…", "mode": "replay", "startedAt": "…", "finishedAt": "…", "outcome": "complete", "replay": true } }
 ```
 
-`tinyfishKeyPresent` is a yes or no only. The key never leaves `server/src/tinyfish/client.js`.
+`database.kind` is `postgres` or `local`; `fallbackReason` gives an error code only (for example "Postgres unreachable (ECONNREFUSED)"), never the URL. `keyPresent` and `tinyfishKeyPresent` are a yes or no only. The key never leaves `server/src/tinyfish/client.js`.
 
 ## History and re-judge
 
@@ -131,6 +134,20 @@ Errors: `503` without a key; `400` without a usable runId or items; `502` if Tin
 | `GET /api/history/:id` | One saved run: the summary plus `plan` and `kits` |
 | `GET /api/history/compare?a=<id>&b=<id>` | `{ older, newer, diff: { added, removed, newlyClosed, deadlineMoved, fitChanged, verificationChanged, unchanged } }` |
 | `POST /api/rejudge` | Body `{ runId \| historyId, profile: { gender?, category?, familyIncome?, capAdmission?, domicileProof? } }`. Re-applies the Judge and the Ranker to the same fetched data and returns `{ plan, profile }`; `plan.rejudged` lists what moved. Nothing is re-fetched. |
+
+## Saved runs (database)
+
+| Route | Purpose |
+|---|---|
+| `GET /api/runs?limit=20` | Saved runs, newest first: `{ store: "postgres" \| "local" \| "json", runs: [{ id, mode, profileId, startedAt, finishedAt, status, items }] }`. `store: "json"` means the database could not open and the JSON history is served. |
+| `GET /api/runs/:runId` | One saved run: `{ store, run, profile, unknown: [fields not stated], items: [{ schemeId, name, type, status, deadline, deadlineNote, amount, sourceUrl, lastChecked, verifierStatus, rank, whyRanked }] }`. 404 if not saved. `status` is `match`, `conditional`, `unclear` or `no`. |
+
+## Errors, validation and limits
+
+- Every POST body is validated. A wrong type is `400 { error: "invalid request body", issues: [{ path, message }] }`. Malformed JSON is 400, a body over 100 kB is 413.
+- Any other failure is `500 { error: "internal error", requestId }`, with no stack trace or internal message.
+- Rate limits per IP: `POST /api/run(s)` and `POST /api/recheck` 10 per minute each, other `/api` routes 300 per minute, at most 6 open event streams. Over a limit: `429` with `Retry-After`.
+- Browser requests from origins not on the CORS allowlist get no CORS headers, and their POSTs get 403.
 
 ## Other routes
 

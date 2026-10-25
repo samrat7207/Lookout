@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { STATUS, roleColor } from './agentStyle.js';
 
 // System view (?tech or the "System" button): the 10-role roster with live status and
@@ -114,6 +115,8 @@ export function SystemView({ state, recheck, onClose }) {
         </section>
       </div>
 
+      <ServerStatus />
+
       <h3>Sources used ({list.length})</h3>
       {list.length ? (
         <ul className="sys__list">
@@ -127,5 +130,34 @@ export function SystemView({ state, recheck, onClose }) {
       <h3>Sources not used ({notUsed.length})</h3>
       <ul className="sys__list">{notUsed.map((n) => <li key={n.name}><b>{n.name}</b>: {n.reason}</li>)}</ul>
     </aside>
+  );
+}
+
+/** The server's own health (GET /api/health, read when the view opens): database, key, limits, cache. */
+function ServerStatus() {
+  const [h, setH] = useState(null);
+  const [err, setErr] = useState(null);
+  useEffect(() => {
+    fetch('/api/health')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then(setH)
+      .catch((e) => setErr(e.message));
+  }, []);
+  if (err) return <p className="sys__bad">Server health unavailable: {err}</p>;
+  if (!h) return <p className="sys__muted">Reading server health…</p>;
+  const db = h.database ?? {};
+  const dbText = db.kind === 'postgres' ? 'Postgres' : db.kind === 'local' ? `local fallback (${db.engine ?? 'sqlite'})` : 'none (JSON history only)';
+  const l = h.limits;
+  return (
+    <section>
+      <h3>Server</h3>
+      <ul className="sys__list">
+        <li>Database in use: <b>{dbText}</b>{db.fallbackReason ? <span className="sys__muted"> · {db.fallbackReason}</span> : null}</li>
+        <li>Default mode: <b>{h.mode}</b> · TinyFish key present: <b>{h.keyPresent}</b></li>
+        {l && <li>Rate limits per IP: runs {l.runPerMinute}/min, re-checks {l.recheckPerMinute}/min, reads {l.readPerMinute}/min, open event streams {l.sseConnectionsPerIp}</li>}
+        <li>Page cache: {h.cache.entries} entries ({Math.round(h.cache.bytes / 1024)} KB)</li>
+        <li>Last run: {h.lastRunAt ? new Date(h.lastRunAt).toLocaleString('en-IN') : 'none since the server started'}</li>
+      </ul>
+    </section>
   );
 }

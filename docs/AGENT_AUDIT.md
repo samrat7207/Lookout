@@ -42,7 +42,7 @@ An honest inventory of what exists in the code today, and how it maps to the 10-
 
 ## 3. Honest notes for the mentors
 
-- No LLM decides anything. Eligibility is keyword and rule code, which is why some items say "needs verification" or "unclear".
+- No LLM decides anything. Eligibility is keyword and rule code, which is why some items say "unclear" or carry a "Rule awaiting review" chip (called "needs verification" before 2026-10-25).
 - Scouts are async functions in one process, not separate services. "Parallel" means `Promise.all` over network calls.
 - Mock mode replays a scripted run built from recon data. Replay mode replays a recorded real run. Only Live makes network calls.
 

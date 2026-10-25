@@ -135,13 +135,16 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
     res.json({
       ok: true,
       modes: MODES,
+      mode: defaultMode(),
       defaultMode: defaultMode(),
-      tinyfishKeyPresent: hasApiKey(), // yes/no only; the key itself never leaves client.js
+      keyPresent: hasApiKey() ? 'yes' : 'no', // yes/no only; the key itself never leaves client.js
+      tinyfishKeyPresent: hasApiKey(),
       lastRecording: lastRealRecording(),
       opportunities: process.env.OPPORTUNITIES !== 'off',
       cache: cacheStats(cacheDirUsed),
       limits: { ...limiter.settings, openEventStreams: limiter.openStreams() },
       database: await repoReady.then((r) => r?.info() ?? { kind: 'none', fallbackReason: 'database unavailable; the JSON history is used' }),
+      lastRunAt: lastRun?.finishedAt ?? lastRun?.startedAt ?? null,
       lastRun,
     });
   });

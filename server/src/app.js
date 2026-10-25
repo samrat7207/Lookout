@@ -16,6 +16,7 @@ import { istToday } from './rank/ranker.js';
 import { createHistory, diffPlans, entryFromRun, HISTORY_FILE, summarize } from './history/history.js';
 import { rejudgePlan } from './rank/rejudge.js';
 import { openRepository } from './db/index.js';
+import { attachLibrarian } from './librarian.js';
 import { rowsFromEntry, unknownFields } from './db/fromRun.js';
 import { createLimiters, limitSettings } from './limits.js';
 import { allowedOrigins, cors, errorHandler, redact, requestLogger, schemas, securityHeaders, validate } from './security.js';
@@ -183,6 +184,8 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
     // live runs may fall back to a replay; they get controls then (GET .../control to read them)
     if (replaying || mode === 'live') run.control = createControl({ speed: parseSpeed(body.speed) ?? 1 });
     if (record && mode === 'fake') recordRun(run).catch((err) => console.error('recorder:', err.message));
+    // the Librarian reads the saved runs in every mode except the test-only fake run
+    if (mode !== 'fake') attachLibrarian(run, repoReady, { mode });
 
     lastRun = { runId: run.id, mode, startedAt: new Date().toISOString(), finishedAt: null, outcome: 'running' };
     const mine = lastRun;

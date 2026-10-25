@@ -15,7 +15,15 @@ const PLACE_DEFS = {
   watchtower: { spot: [0.6, -11.1], walk: [0.8, -8.8], road: [0.8, -7] },
   foundations: { spot: [-10.0, 16.5], walk: [-8.8, 16.5], road: [-7, 16.5] },
   opportunities: { spot: [12.6, 14.2], walk: [8.8, 14.2], road: [7, 14.2] },
+  // the Cafeteria (handoffs) and the Library (the Librarian) face the inner roads
+  cafeteria: { spot: [10.4, -2.6], walk: [8.8, -2.6], road: [7, -2.6] },
+  library: { spot: [-10.2, 0.6], walk: [-8.8, 0.6], road: [-7, 0.6] },
 };
+// two agents meet at a Cafeteria table: one on each side
+const CAFE_SLOTS = [[-0.75, 0], [0.75, 0], [0, -0.75], [0, 0.75], [-0.75, 0.75], [0.75, -0.75]];
+// the assembly: a half ring on the plaza, facing the Mayor at the hall door
+const ASSEMBLY_C = [0, 4.4];
+const ASSEMBLY_R = 2.8;
 const TOWNHALL_EXITS = [
   { walk: [-5.2, 1.2], road: [-7, 1.2] },
   { walk: [5.2, 1.2], road: [7, 1.2] },
@@ -32,6 +40,15 @@ export const AGENT_Y = LOT_TOP;
 export const HELPER_SPOTS = { gatekeeper: [5.2, 4.3], verifier: [-3.0, 3.4], profiler: [2.9, 3.5] };
 
 export function spotFor(place, slot, isMayor = false, agentId = null) {
+  if (place === 'assembly') {
+    if (isMayor) return MAYOR_SPOT;
+    const a = Math.PI * (0.12 + 0.76 * (((slot * 0.618) % 1)));
+    return [ASSEMBLY_C[0] - Math.cos(a) * ASSEMBLY_R, ASSEMBLY_C[1] - Math.sin(a) * ASSEMBLY_R * 0.6 - 0.6];
+  }
+  if (place === 'cafeteria') {
+    const [dx, dz] = CAFE_SLOTS[slot % CAFE_SLOTS.length];
+    return [PLACE_DEFS.cafeteria.spot[0] + dx, PLACE_DEFS.cafeteria.spot[1] + dz];
+  }
   if (place === 'townhall') {
     if (isMayor) return MAYOR_SPOT;
     if (HELPER_SPOTS[agentId]) return HELPER_SPOTS[agentId];
@@ -41,7 +58,7 @@ export function spotFor(place, slot, isMayor = false, agentId = null) {
   return def ? def.spot : MAYOR_SPOT;
 }
 
-export const KNOWN_PLACES = ['townhall', ...Object.keys(PLACE_DEFS)];
+export const KNOWN_PLACES = ['townhall', 'assembly', ...Object.keys(PLACE_DEFS)];
 
 function roadGraph() {
   const nodes = new Map(); // id -> { x, z, links: Map<id, dist> }
@@ -76,7 +93,7 @@ function roadGraph() {
 const ROADS = roadGraph();
 
 function accessNodes(place) {
-  if (place === 'townhall') return TOWNHALL_EXITS.map((_, i) => `townhall:walk${i}`);
+  if (place === 'townhall' || place === 'assembly') return TOWNHALL_EXITS.map((_, i) => `townhall:walk${i}`);
   return PLACE_DEFS[place] ? [`${place}:walk`] : [];
 }
 
@@ -90,7 +107,8 @@ export function route(fromP, from, toXZ, to, lane = 0) {
   toXZ = [toXZ[0], toXZ[1], LOT_TOP];
   const starts = accessNodes(from);
   const ends = new Set(accessNodes(to));
-  if (!starts.length || !ends.size || from === to) return [fromXZ, toXZ];
+  const plaza = (p) => p === 'townhall' || p === 'assembly';
+  if (!starts.length || !ends.size || from === to || (plaza(from) && plaza(to))) return [fromXZ, toXZ];
 
   // Dijkstra from a virtual start linked to every access node of `from`
   const dist = new Map();

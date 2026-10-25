@@ -113,6 +113,27 @@ test('live run (stub client): real-shaped plan with sources, last-checked times,
   assert.equal(run.history.filter((e) => e.kind === 'verify.result').length, plan.items.length);
 });
 
+test('live run (stub client): assembly, split and real handoffs between agents', async () => {
+  const run = createRun();
+  await runLive(run, { client: stubClient(), today: TODAY, cacheDir: null, briefMs: 0 });
+  const h = run.history;
+  const firstWalk = h.findIndex((e) => e.kind === 'agent.walking');
+  assert.ok(h.findIndex((e) => e.kind === 'run.assembled') < firstWalk && h.findIndex((e) => e.kind === 'plan.split') < firstWalk, 'the briefing comes before anyone leaves');
+  const split = h.find((e) => e.kind === 'plan.split').payload;
+  assert.equal(split.mode, 'live');
+  assert.ok(split.assignments.some((a) => a.agentId === 'nsp-scout' && a.to === 'nsp'));
+  const handoffs = h.filter((e) => e.kind === 'handoff').map((e) => e.payload);
+  for (const e of h.filter((x) => x.kind === 'agent.done' && /-scout$/.test(x.agentId))) {
+    const ho = handoffs.find((x) => x.from === e.agentId && x.to === 'mayor');
+    assert.ok(ho, `${e.agentId} hands its findings to the Mayor`);
+    assert.equal(ho.count, e.payload.findings);
+  }
+  const toVerifier = handoffs.find((x) => x.from === 'mayor' && x.to === 'verifier');
+  assert.ok(toVerifier && toVerifier.count > 0);
+  assert.ok(handoffs.some((x) => x.from === 'verifier' && x.to === 'mayor'));
+  assert.ok(handoffs.every((x) => !x.derived), 'live handoffs are real, not derived');
+});
+
 test('live run with a bad key throws before emitting anything', async () => {
   const run = createRun();
   await assert.rejects(runLive(run, { client: stubClient({ failSearch: { code: 'HTTP_401', message: 'unauthorized', status: 401 } }), today: TODAY, cacheDir: null }), LiveUnavailableError);

@@ -25,7 +25,7 @@ export const STATUS = {
   failed: { label: 'Failed', color: '#e63946' },
 };
 
-export const TOOL_ICON = { search: '🔍', fetch: '📄', agent: '🤖', monitor: '👁' };
+export const TOOL_ICON = { search: '🔍', fetch: '📄', agent: '🤖', monitor: '👁', database: '📚' };
 
 const BY_ID = Object.fromEntries(LANDMARKS.map((l) => [l.id, l]));
 export const landmark = (id) => BY_ID[id];

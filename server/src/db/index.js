@@ -83,7 +83,7 @@ export async function openRepository({ databaseUrl = process.env.DATABASE_URL, l
   return {
     info: () => ({ ...info }),
     profiles: wrap('profiles', ['create', 'get']),
-    runs: wrap('runs', ['create', 'finish', 'get', 'list']),
+    runs: wrap('runs', ['create', 'finish', 'get', 'list', 'lastCompletedFor']),
     planItems: wrap('planItems', ['addMany', 'listByRun']),
     sources: wrap('sources', ['upsertMany', 'list']),
     saveRun: (...a) => call((r) => r.saveRun.bind(r), a),

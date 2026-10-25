@@ -31,6 +31,11 @@ export function initialState() {
     tools: { ok: 0, failed: 0, cached: 0 }, // TinyFish calls as seen by the scouts
     verification: {}, // opportunityId -> { status, reason, checkedAt }
     profile: null, // Profiler output
+    assembly: null, // run.assembled payload
+    planSplit: null, // plan.split payload (the Mayor's briefing card), plus the library request
+    handoffs: [], // recent handoff events: { seq, t, from, to, summary }
+    library: null, // library.result payload
+    sinceLastRun: null, // library.diff payload
     error: null,
   };
 }
@@ -91,6 +96,12 @@ export function describe(evt) {
     case 'kit.ready': return `Application Kit ready: ${p.title ?? p.id}`;
     case 'watchtower.checked': return `Checked ${p.schemesTracked ?? '?'} schemes, no date changes`;
     case 'watchtower.change': return `Date changed: ${p.changes?.length ?? 0} schemes`;
+    case 'run.assembled': return `Everyone gathered at Town Hall (${p.agents?.length ?? 0} agents)${p.derived ? ' · rebuilt from the recording' : ''}`;
+    case 'plan.split': return `Briefing: ${p.assignments?.filter((a) => a.to !== 'townhall').length ?? 0} agents to ${p.sources?.length ?? 0} sources (${p.mode ?? '?'} run)`;
+    case 'handoff': return `Handoff ${p.from} → ${p.to}: ${p.summary}${p.derived ? ' (rebuilt from the recording)' : ''}`;
+    case 'library.request': return 'Mayor asks the Librarian for your last run';
+    case 'library.result': return `Library (${p.store}): ${p.summary}`;
+    case 'library.diff': return p.previous ? `Since your last run: ${p.newItems?.length ?? 0} new, ${p.closedItems?.length ?? 0} closed, ${p.deadlineChanged?.length ?? 0} deadlines changed` : 'Since your last run: no previous run for this profile';
     case 'run.complete': return `Run complete: ${p.findings ?? 0} findings, ${p.errors ?? 0} errors`;
     case 'run.failed': return `Run failed: ${p.message ?? ''}`;
     case 'profile.ready': return `Profile read: ${p.known?.length ?? 0} facts known, ${p.unknown?.length ?? 0} unknown (needs your input)`;
@@ -116,7 +127,7 @@ function brief(kind, p) {
 }
 
 /** Agents that help but do not visit a source; they are not counted in "sources done". */
-export const HELPERS = new Set(['mayor', 'gatekeeper', 'verifier', 'profiler']);
+export const HELPERS = new Set(['mayor', 'gatekeeper', 'verifier', 'profiler', 'librarian']);
 
 const LEVEL = {
   'blocked': 'error', 'agent.error': 'error', 'run.failed': 'error', 'agent.found': 'good', 'plan.ready': 'good', 'run.complete': 'good' };
@@ -160,6 +171,10 @@ export function reduce(state, evt) {
     const cur = s.buildings[id] ?? newBuilding(id);
     s.buildings = { ...s.buildings, [id]: { ...cur, ...(typeof patch === 'function' ? patch(cur) : patch), lastEvent: last } };
   };
+  const patchOther = (id, patch) => {
+    const cur = s.agents[id];
+    if (cur) s.agents = { ...s.agents, [id]: { ...cur, ...patch } };
+  };
   const setSource = (b, key, fn) => ({ ...b.sources, [key]: fn(b.sources[key]) });
 
   s.eventCounts = { ...s.eventCounts, [evt.kind]: (s.eventCounts[evt.kind] ?? 0) + 1 };
@@ -177,10 +192,45 @@ export function reduce(state, evt) {
       break;
 
     case 'agent.spawned':
-      agentPatch({ name: p.name ?? evt.agentId, role: p.role ?? '', status: 'idle', target: 'townhall' });
+      // an agent who arrives during the briefing joins the assembly
+      agentPatch({ name: p.name ?? evt.agentId, role: p.role ?? '', status: 'idle', target: s.assembly && !s.dispersed ? 'assembly' : 'townhall' });
       break;
 
+    case 'run.assembled':
+      s.assembly = p;
+      s.dispersed = false;
+      for (const id of s.agentOrder) if (id !== 'mayor') patchOther(id, { target: 'assembly' });
+      buildingPatch('townhall', { status: 'busy', agentId: 'mayor' });
+      break;
+
+    case 'plan.split':
+      s.planSplit = { ...p, at: evt.t ?? 0 };
+      // helpers go to their posts at Town Hall now; scouts leave on their own agent.walking
+      for (const a of p.assignments ?? []) if (a.to === 'townhall' && a.agentId !== 'mayor') patchOther(a.agentId, { target: 'townhall' });
+      break;
+
+    case 'library.request':
+      if (s.planSplit) s.planSplit = { ...s.planSplit, assignments: [...(s.planSplit.assignments ?? []), { agentId: 'librarian', name: 'Libby', to: 'library', task: 'Look up your last run in the saved runs' }] };
+      break;
+
+    case 'library.result':
+      s.library = p;
+      break;
+
+    case 'library.diff':
+      s.sinceLastRun = p;
+      break;
+
+    case 'handoff': {
+      s.handoffs = [...s.handoffs.slice(-11), { seq: evt.seq, t: evt.t ?? 0, from: p.from, to: p.to, summary: p.summary, derived: !!p.derived }];
+      const visit = { place: 'cafeteria', seq: evt.seq, from: p.from, to: p.to };
+      patchOther(p.from, { visit });
+      patchOther(p.to, { visit });
+      break;
+    }
+
     case 'agent.walking':
+      if (evt.agentId !== 'librarian') s.dispersed = true; // the briefing ends when a source visit starts
       agentPatch({ status: 'walking', target: p.to ?? evt.building });
       break;
 

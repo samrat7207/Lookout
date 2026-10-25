@@ -15,6 +15,7 @@ export function createRun({ runId = newRunId(), replay = false } = {}) {
   const startedAt = Date.now();
   const history = [];
   const subscribers = new Set();
+  const beforeEnd = []; // hooks run just before run.complete / run.failed (they may emit)
   let seq = 0;
   let closed = false;
 
@@ -31,6 +32,15 @@ export function createRun({ runId = newRunId(), replay = false } = {}) {
      */
     emit(kind, { agentId, building, payload = {}, t } = {}) {
       if (closed) throw new Error(`run ${runId} is closed`);
+      if ((kind === 'run.complete' || kind === 'run.failed') && beforeEnd.length) {
+        for (const hook of beforeEnd.splice(0)) {
+          try {
+            hook();
+          } catch (err) {
+            console.error('run hook:', err.message);
+          }
+        }
+      }
       const evt = {
         v: SCHEMA_VERSION,
         seq: ++seq,
@@ -52,6 +62,11 @@ export function createRun({ runId = newRunId(), replay = false } = {}) {
     markReplay() {
       replay = true;
       run.replay = true;
+    },
+
+    /** fn() runs once, just before run.complete or run.failed is emitted; it may emit events first. */
+    beforeEnd(fn) {
+      beforeEnd.push(fn);
     },
 
     /** fn(evt) for each new event; fn(null) once when the run closes. Returns unsubscribe. */

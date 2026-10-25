@@ -13,8 +13,9 @@ function offlineShell() {
     generateBundle(_, bundle) {
       const files = Object.keys(bundle).filter((f) => !f.endsWith('.map'));
       const shell = ['/', '/index.html', ...files.filter((f) => f !== 'index.html').map((f) => `/${f}`)];
-      const version = createHash('sha1').update(files.sort().join('|')).digest('hex').slice(0, 12);
       const tpl = readFileSync(new URL('./src/offline/sw-template.js', import.meta.url), 'utf8');
+      // a new bundle or a new worker gives a new cache name
+      const version = createHash('sha1').update(files.sort().join('|')).update(tpl).digest('hex').slice(0, 12);
       this.emitFile({ type: 'asset', fileName: 'sw.js', source: tpl.replace('__VERSION__', version).replace('__SHELL__', JSON.stringify(shell)) });
     },
   };

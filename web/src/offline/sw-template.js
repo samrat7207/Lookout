@@ -31,9 +31,9 @@ self.addEventListener('fetch', (event) => {
   if (neverCache(req, url)) return; // straight to the network, untouched
   if (req.mode === 'navigate') {
     // the page: network first (picks up a new build), cached shell when the server is down
-    event.respondWith(fetch(req).catch(() => caches.match('/index.html', { cacheName: CACHE }).then((r) => r ?? caches.match('/index.html'))));
+    event.respondWith(fetch(req).catch(() => caches.match('/index.html', { cacheName: CACHE, ignoreVary: true }).then((r) => r ?? caches.match('/index.html'))));
     return;
   }
   // built assets have hashed names, so the cached copy is always the right one
-  event.respondWith(caches.match(req, { cacheName: CACHE }).then((hit) => hit ?? fetch(req)));
+  event.respondWith(caches.match(req, { cacheName: CACHE, ignoreVary: true }).then((hit) => hit ?? fetch(req)));
 });

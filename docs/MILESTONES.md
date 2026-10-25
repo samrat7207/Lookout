@@ -243,3 +243,10 @@ Time budget for 24 h: S1 about 4 h → S2 about 4 h → S3 about 5 h → S4 abou
 - The full demo fits in 3 minutes.
 
 **Commit:** `Stage 6: mock mode UI, golden recording, polish`
+
+## City v3 (2026-10-25)
+- ✅ Four corner districts: Checkpoint (Gatekeeper), Inspection Office (Verifier), Application Desk (Kit Builder, `kit.building`), Auditor's Office (Conflict Checker, `conflict.check`). Older recordings are upgraded and marked "rebuilt from the recording". Labels show real counts; the System view roster is updated. Tests: `server/test/corners.test.js`, `web/test/paths.test.js`, a reducer test.
+- ✅ Offline page cache: a service worker in production builds; `/api` and SSE are never cached; a server-unreachable banner. Tested on `vite preview` with the API stopped, then with the preview server stopped as well.
+- ✅ 30-day auto purge (`RETENTION_DAYS`), at start and daily, counts-only logs, shown in `/api/health` and the System view. Tests: `server/test/retention.test.js`, plus a Postgres stand-in test.
+- ⚠ Frame time in an automated Chrome tab: median 20.9 ms, p95 34.7 ms (below 60 fps there). Needs a by-hand check with `?stats`.
+- **Planned, not built:** load balancer, CDN, login and sign-up, Terms and Conditions.

@@ -60,19 +60,37 @@ function Conflicts({ conflicts }) {
   );
 }
 
-const VERIFY = {
-  verified: { label: '✓ Verified', cls: 'verified' },
-  changed: { label: '⚠ Changed', cls: 'changed' },
-  unverified: { label: '? Could not verify', cls: 'unverified' },
+// Two separate questions, two separate chips:
+//   "Source re-checked" (the Verifier): is the name and date still on the source page?
+//   "Rule awaiting review" (the Judge): was eligibility read only from names or keywords?
+const hhmm = (iso) => {
+  const d = new Date(iso ?? '');
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 };
+const at = (v) => (hhmm(v.checkedAt) ? ` ${hhmm(v.checkedAt)}` : '');
+const SOURCE_TIP = 'About the data, not about whether you qualify: Lookout re-opened the source page and looked for this scheme name and its deadline.';
+export const RULE_TIP = 'About whether you qualify, not about the date: eligibility was read from the scheme name or page keywords, not from an official guideline we checked. Confirm on the official guideline before applying.';
+
+const VERIFY = {
+  verified: { label: (v) => `✓ Source re-checked${at(v)}`, cls: 'verified' },
+  changed: { label: (v) => `⚠ Source re-checked${at(v)}: changed`, cls: 'changed' },
+  unverified: { label: () => '? Source not re-checked', cls: 'unverified' },
+};
+
+/** The rule flag: eligibility read from names or keywords, waiting for a person to review it. */
+export function RuleBadge() {
+  return <span className="chip chip--verify" title={RULE_TIP} aria-label={`Rule awaiting review. ${RULE_TIP}`}>Rule awaiting review</span>;
+}
 
 /** The Verifier's badge; anything but "verified" also shows its reason. */
 export function VerifyBadge({ v, withReason = false }) {
-  if (!v) return <span className="chip chip--unverified" title="The Verifier has not reported on this item">not re-checked</span>;
+  if (!v) return <span className="chip chip--unverified" title={`${SOURCE_TIP} The Verifier has not reported on this item.`}>Source not re-checked</span>;
   const m = VERIFY[v.status] ?? VERIFY.unverified;
+  const label = m.label(v);
+  const tip = `${SOURCE_TIP} ${v.reason ?? ''}`.trim();
   return (
     <>
-      <span className={`chip chip--${m.cls}`} title={v.reason}>{m.label}</span>
+      <span className={`chip chip--${m.cls}`} title={tip} aria-label={`${label}. ${tip}`}>{label}</span>
       {withReason && v.status !== 'verified' && <span className={`plan__vreason plan__vreason--${m.cls}`}>{v.reason}</span>}
     </>
   );
@@ -94,8 +112,8 @@ function Row({ item, kit, onKit, verification, watch }) {
       <div className="plan__body">
         <div className="plan__top">
           <span className={`chip chip--${fit.cls}`}>{fit.label}</span>
-          {item.needsVerification && <span className="chip chip--verify">needs verification</span>}
           <VerifyBadge v={v} withReason />
+          {item.needsVerification && <RuleBadge />}
           {w && <span className={`chip chip--${w.cls}`} title={watch.reason}>{w.label}</span>}
           {watch?.status === 'changed' && <span className="plan__vreason plan__vreason--changed">{watch.reason}</span>}
           <span className="plan__kind">{item.kind === 'scholarship' ? '🎓' : item.kind === 'hackathon' ? '💻' : '📅'} {item.source}</span>
@@ -135,7 +153,7 @@ function KitView({ kit, onClose }) {
         <button type="button" className="card__close" onClick={onClose} aria-label="Close kit">×</button>
       </div>
       <p className="kit__safety">🔒 {SAFETY}</p>
-      {kit.needsVerification && <p className="chip chip--verify">needs verification: eligibility was read from the scheme name or page, confirm on the official guideline</p>}
+      {kit.needsVerification && <p className="chip chip--verify" title={RULE_TIP}>Rule awaiting review: eligibility was read from the scheme name or page; confirm on the official guideline</p>}
       <div className="kit__deadline">
         {kit.deadline ? <>Deadline <b>{fmtDate(kit.deadline)}</b> ({daysLeft(kit.daysLeft)})</> : <b>Deadline not published</b>}
         {' · '}
@@ -149,7 +167,7 @@ function KitView({ kit, onClose }) {
             {d.from ? (
               <a href={d.from} target="_blank" rel="noreferrer noopener"> (listed on {host(d.from)})</a>
             ) : (
-              <span className="chip chip--verify">usually needed · needs verification</span>
+              <span className="chip chip--verify">usually needed · not read from the scheme page</span>
             )}
           </li>
         ))}
@@ -388,7 +406,7 @@ export function PlanScreen({ state, onClose, recheck, setRecheck, view = null, o
           <input type="search" placeholder="Search by name" aria-label="Search by name" value={f.q} onChange={(e) => setF((x) => ({ ...x, q: e.target.value }))} />
           <span className="plan__fgroup" aria-label="Status">{FIT_OPTS.map(([v, l]) => <Toggle key={v} on={f.fits.includes(v)} onClick={() => flip('fits', v)}>{l}</Toggle>)}</span>
           <span className="plan__fgroup" aria-label="Type">{TYPE_OPTS.map(([v, l]) => <Toggle key={v} on={f.types.includes(v)} onClick={() => flip('types', v)}>{l}</Toggle>)}</span>
-          <Toggle on={f.verifiedOnly} onClick={() => setF((x) => ({ ...x, verifiedOnly: !x.verifiedOnly }))}>✓ Verified only</Toggle>
+          <Toggle on={f.verifiedOnly} onClick={() => setF((x) => ({ ...x, verifiedOnly: !x.verifiedOnly }))}>✓ Source re-checked only</Toggle>
           {filtered && <button type="button" className="btn" onClick={() => setF({ fits: [], types: [], verifiedOnly: false, q: '' })}>Clear filters</button>}
         </div>
         <div className="plan__tabs" role="tablist" onKeyDown={onTabKey}>
@@ -452,7 +470,7 @@ function PrintPlan({ plan, label }) {
       <p>{SAFETY}</p>
       {plan.conflicts?.length > 0 && <p><b>Check before applying:</b> {plan.conflicts.map((c) => `${c.title}: ${c.text}`).join(' ')}</p>}
       <table>
-        <thead><tr><th>#</th><th>Item</th><th>Deadline</th><th>Status</th><th>Verified</th><th>Source</th><th>Last checked</th></tr></thead>
+        <thead><tr><th>#</th><th>Item</th><th>Deadline</th><th>Status</th><th>Source re-checked</th><th>Source</th><th>Last checked</th></tr></thead>
         <tbody>
           {plan.items.map((i) => (
             <tr key={i.opportunityId}>

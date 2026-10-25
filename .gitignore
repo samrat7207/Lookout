@@ -24,3 +24,9 @@ recordings/*
 Thumbs.db
 .vscode/
 *.log
+
+# key and certificate files
+*.pem
+*.key
+*.p12
+*.pfx

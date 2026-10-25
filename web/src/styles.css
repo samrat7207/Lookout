@@ -630,3 +630,12 @@ body {
 .label[data-landmark='townhall'] .label__pill { font-size: 13px; padding: 4px 11px 4px 7px; }
 /* the title stays readable on the dusk sky (projector) */
 .brand { padding: 8px 12px 10px; border-radius: 14px; background: rgba(255, 255, 255, 0.82); box-shadow: 0 4px 14px rgba(31, 42, 55, 0.12); }
+
+/* saved runs (database) in the History drawer */
+.hist__saved { margin-top: 18px; border-top: 1px solid var(--line, rgba(127,127,127,.3)); padding-top: 10px; }
+.hist__saved h3 { font-size: 14px; margin: 0 0 6px; }
+.hist__items { flex-basis: 100%; overflow-x: auto; }
+.hist__items table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.hist__items th, .hist__items td { text-align: left; padding: 3px 6px; border-bottom: 1px solid rgba(127,127,127,.2); vertical-align: top; }
+.hist__saved .hist__row { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.hist__saved .hist__row .btn { margin-left: auto; }

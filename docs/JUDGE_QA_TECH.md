@@ -16,13 +16,13 @@ Live mode falls back to the last real recording, and the UI shows a "Replaying r
 It is parsed from the fetched page by a parser for that source, the exact line is kept as `evidence`, and the page URL and fetch time travel with it. Then the Verifier re-fetches the page and checks that the name and the date are still there. If either fails, the item is flagged "changed" or "could not verify". If no date is published, we say "deadline not published".
 
 **6. How does it scale?**
-Sources are shared and students are cheap. Reads scale with the number of sources, not students, and the cache absorbs repeats. The per-student pipeline is milliseconds of CPU. To go further we would move the cache to a shared store, use TinyFish Monitor for scheduled re-checks, and add a database for runs. Today it is one process with in-memory runs.
+Sources are shared and students are cheap. Reads scale with the number of sources, not students, and the cache absorbs repeats. The per-student pipeline is milliseconds of CPU. To go further we would move the cache to a shared store, use TinyFish Monitor for scheduled re-checks, and run several stateless API instances behind a load balancer (planned, not built). Today it is one process: live runs stream from memory, and completed runs are saved to Postgres when `DATABASE_URL` is set, else to a local SQLite file.
 
 **7. What does it cost per student?**
 One fresh live run tonight made **8 TinyFish API calls** for 21 page or search reads (`plan.sources.gatekeeper` in the recording). With a warm cache, a second student costs close to zero calls for the same sources. We have not measured money per call; the TinyFish wallet shows the real figure.
 
 **8. What about data privacy?**
-The profile is not stored. It lives only in the events of that run (in memory for an hour) and in recordings we choose to make. Recordings use the "sample student", not a real person. We never ask for, store or enter Aadhaar numbers, OTPs, passwords or bank details. `assertKitSafe` makes the server refuse any kit where a sensitive field has a value. The TinyFish key stays on the server and is read in one file only.
+When a run completes, only the facts matching needs (state, category, course, year, gender, disability, and income, CAP admission and domicile proof when given; unknown ones stay empty) are saved with the run in the database (Postgres, or the local SQLite fallback). No name, contact details or ID numbers. The run's events stay in memory for an hour and in recordings we choose to make. Recordings use the "sample student", not a real person. We never ask for, store or enter Aadhaar numbers, OTPs, passwords or bank details. `assertKitSafe` makes the server refuse any kit where a sensitive field has a value. The TinyFish key stays on the server and is read in one file only.
 
 **9. Why deterministic ranking?**
 Because a student must be able to trust and check it. The order is deadline, then fit (match, then conditional, then unclear), and nothing else. Each row says why it is where it is. The same input always gives the same plan, which is also what makes replay identical to live.

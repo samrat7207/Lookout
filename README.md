@@ -19,6 +19,7 @@ Built in 6 stages ([docs/MILESTONES.md](docs/MILESTONES.md)).
 | 4 Plan screen and Application Kit | ✅ done: conflicts panel, ranked list, read-only kits, "Not applicable" reasons, sources footer, `?demo` |
 | 5 Opportunities and Watchtower | ✅ **slim**: hackathons and events from the Devpost and HackerEarth feeds, with their own plan tab; Watchtower "Re-check now" (on request only, no schedules) |
 | UI polish (Part B) | ✅ run history with compare, deadline timeline, print and `.ics` export (fetched dates only), filters and search, editable profile with a Judge and Ranker re-run, guided captions (`?guided`), Day / Dusk / Cycle theme with a filmic colour grade |
+| Backend layer | ✅ runs saved to Postgres (`DATABASE_URL`) or a local SQLite fallback, automatic fallback shown in `/api/health`; helmet, CORS allowlist, zod validation, safe errors and logs; inbound rate limits (429 + `Retry-After`). CDN, load balancer and TEE are **planned, not built** ([docs/BACKEND_AND_SECURITY.md](docs/BACKEND_AND_SECURITY.md)) |
 | 6 Polish and rehearsal | partly: LIVE / REPLAY / MOCK with an automatic fallback, a System view (`?tech`), and the API documented in [docs/API.md](docs/API.md) |
 
 ## Team
@@ -43,11 +44,12 @@ Samrat Kunte (lead: city, backend, integration), Aman Kumar (Application Kit dat
 | [docs/AGENT_AUDIT.md](docs/AGENT_AUDIT.md) | Every module and agent: what it does, deterministic or tool-using, tests |
 | [docs/API.md](docs/API.md) | HTTP API with request and response examples |
 | [docs/JUDGE_QA_TECH.md](docs/JUDGE_QA_TECH.md) | 12 likely technical questions with short, honest answers |
+| [docs/BACKEND_AND_SECURITY.md](docs/BACKEND_AND_SECURITY.md) | Storage and fallback, security layer, rate limits; what is planned (CDN, load balancer, SSE routing, row-level security, TEE) and not built |
 
 ## Stack
 
 - **web/**: Vite, React, @react-three/fiber, @react-three/drei. Boxes and cones only, flat colours, no external assets.
-- **server/**: Node and Express. Holds `TINYFISH_API_KEY` from `.env`, calls TinyFish, and streams agent events to the browser over SSE. The key never reaches the browser.
+- **server/**: Node and Express. Holds `TINYFISH_API_KEY` from `.env`, calls TinyFish, and streams agent events to the browser over SSE. The key never reaches the browser. Small dependencies: `pg` (Postgres, only when `DATABASE_URL` is set), `helmet` (security headers), `express-rate-limit` (inbound limits), `zod` (request validation). The local database fallback is `node:sqlite`, built into Node 24.
 - **recordings/**: JSONL files of real runs. MOCK MODE replays them.
 
 ## Run
@@ -66,7 +68,7 @@ npm install
 npm run dev              # http://localhost:5173  (add ?stats for FPS and draw calls)
 ```
 
-Pick a mode in the top bar and press **Start run**. **⚙ System view** (or `?tech`) shows the 10-role agent roster, event counts, TinyFish calls and the cache hit rate, all from the events. On the plan, **🗼 Re-check now** asks the Watchtower to re-fetch the sources (needs the key):
+Pick a mode in the top bar and press **Start run**. **⚙ System view** (or `?tech`) shows the 10-role agent roster, event counts, TinyFish calls and the cache hit rate, all from the events, plus the server's database in use, rate limits and whether a key is present (`/api/health`). On the plan, **🗼 Re-check now** asks the Watchtower to re-fetch the sources (needs the key):
 
 | Mode | What it does | Needs |
 |---|---|---|
@@ -87,7 +89,8 @@ cd server && npm run capture      # writes recordings/real-run.jsonl; a failed r
 Tests:
 
 ```sh
-cd server && npm test    # parsers, ranker, Gatekeeper, Verifier, Watchtower, Profiler, history and re-judge, API, live run on fixtures, fallback, SSE, replay (47)
+cd server && npm test    # parsers, ranker, Gatekeeper, Verifier, Watchtower, Profiler, history and re-judge, API, live run on fixtures, fallback, SSE, replay,
+                         # database (local, Postgres stand-in, fallback), validation, errors, logging, CORS, rate limits (62 pass; 1 needs TEST_DATABASE_URL)
 cd web && npm test       # event reducer, timeline, filters, .ics export (8)
 ```
 

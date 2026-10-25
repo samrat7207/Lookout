@@ -160,7 +160,9 @@ export function createGatekeeper(opts) {
         } catch (err) {
           stats.failed++;
           if (!transient(err) || attempt >= maxRetries) throw err;
-          const delay = Math.round(baseDelayMs * 2 ** attempt + random() * baseDelayMs);
+          // exponential backoff with jitter, but never sooner than TinyFish's own Retry-After (capped at 30 s)
+          const retryAfterMs = Math.min(30_000, (Number(err.retryAfter) || 0) * 1000);
+          const delay = Math.max(retryAfterMs, Math.round(baseDelayMs * 2 ** attempt + random() * baseDelayMs));
           if (err.status === 429) stats.rateLimited++;
           emit('rate.limited', { call: label, attempt: attempt + 1, retryInMs: delay, reason: `${err.code}${err.status ? ` (${err.status})` : ''}` });
           await sleep(delay);

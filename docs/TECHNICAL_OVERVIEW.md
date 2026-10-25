@@ -61,8 +61,8 @@ Watchtower: on "Re-check now" only ─▶ Gatekeeper ─▶ re-read dates ─▶
 - Deadlines come only from fetched text, through a parser per source. If there is none, the item says "deadline not published". Nothing is guessed.
 - Amounts and prizes are shown only when they are on the fetched page (Buddy4Study award lines, the Devpost `prize_amount`).
 - Every item carries its source URL and "last checked".
-- The **Verifier** re-fetches each plan item's page and badges it verified, changed, or could not verify. Nothing is dropped.
-- Eligibility read from names or keywords is marked "needs verification". Unknown profile facts (income, CAP admission, domicile proof) are listed as "unknown, needs your input".
+- The **Verifier** re-fetches each plan item's page and shows a "Source re-checked" chip with the time (or "changed" / "not re-checked"). Nothing is dropped.
+- Eligibility read from names or keywords carries a separate "Rule awaiting review" chip. Unknown profile facts (income, CAP admission, domicile proof) are listed as "unknown, needs your input".
 - Conflict warnings never state a rule unless a fetched page says it. When one does, the warning quotes and links it.
 - The ranking is explainable: deadline, then fit, and nothing else. Every row has a "Why this ranking" line.
 
@@ -77,8 +77,9 @@ Watchtower: on "Re-check now" only ─▶ Gatekeeper ─▶ re-read dates ─▶
 ## Known limits
 - No Vidyasaarathi, Unstop, Hack2skill, Devfolio or MLH in the live run (reasons are listed in the plan).
 - MahaDBT 2.0 is unreachable through the proxy, so MahaDBT deadlines are "not published".
-- Eligibility is keyword and rule based, so it can be wrong at the edges (hence "needs verification").
-- No database: runs live in memory for an hour, and recordings are files.
+- Eligibility is keyword and rule based, so it can be wrong at the edges (hence "Rule awaiting review").
+- Live runs stream from one process's memory (kept for an hour). Completed runs are saved to Postgres when `DATABASE_URL` is set, else to a local SQLite fallback ([BACKEND_AND_SECURITY.md](BACKEND_AND_SECURITY.md)). Not tested against a real Postgres server yet.
+- No CDN, load balancer or TEE (planned, see BACKEND_AND_SECURITY.md).
 - One sample profile drives the demo (no profile form yet).
 - Outcome measurement (did a student apply or win) would be self-reported; we have none yet.
 
@@ -87,4 +88,4 @@ Watchtower: on "Re-check now" only ─▶ Gatekeeper ─▶ re-read dates ─▶
 2. Watchtower schedules with TinyFish Monitor, and notifications on real changes.
 3. Documents parsing for kits (MahaDBT "Documents Required").
 4. A profile form, and more sources (Vidyasaarathi, Unstop, Hack2skill with time-zone checks).
-5. A small database for runs and re-check history.
+5. Re-check history in the database (runs and plan items are already saved).

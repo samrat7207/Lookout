@@ -15,6 +15,10 @@ import { recheck } from './watch/watchtower.js';
 import { istToday } from './rank/ranker.js';
 import { createHistory, diffPlans, entryFromRun, HISTORY_FILE, summarize } from './history/history.js';
 import { rejudgePlan } from './rank/rejudge.js';
+import { openRepository } from './db/index.js';
+import { rowsFromEntry, unknownFields } from './db/fromRun.js';
+import { createLimiters, limitSettings } from './limits.js';
+import { allowedOrigins, cors, errorHandler, redact, requestLogger, schemas, securityHeaders, validate } from './security.js';
 
 // Modes (MODE in server/.env sets the default):
 //   live    real TinyFish Search + Fetch; recorded to recordings/<runId>.jsonl. Falls back
@@ -101,27 +105,73 @@ function planOf(run) {
   return evt?.payload ?? null;
 }
 
-export function createApp({ record = true, client, cacheDir, historyFile = process.env.LOOKOUT_HISTORY_FILE || HISTORY_FILE } = {}) {
+/** @param {{ record?: boolean, client?: object, cacheDir?: string|null, historyFile?: string,
+ *   db?: Parameters<typeof openRepository>[0] | Promise<Awaited<ReturnType<typeof openRepository>>> }} [opts]
+ *   db: options for openRepository, or an already opened repository (tests); origins: the CORS allowlist;
+ *   limits: rate-limit settings (limitSettings() shape) */
+export function createApp({ record = true, client, cacheDir, historyFile = process.env.LOOKOUT_HISTORY_FILE || HISTORY_FILE, db, origins = allowedOrigins(), limits = limitSettings() } = {}) {
   const app = express();
+  app.disable('x-powered-by');
+  if (process.env.TRUST_PROXY) app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? true : process.env.TRUST_PROXY);
+  const limiter = createLimiters(limits);
+  app.use(requestLogger());
+  app.use(securityHeaders());
+  app.use(cors(origins));
   const history = createHistory(historyFile);
-  app.use(express.json({ limit: '200kb' }));
+  // the database (Postgres, else local SQLite); never blocks start-up, and a failure here
+  // leaves the JSON history and the recordings as they are
+  const repoReady = Promise.resolve(db?.then ? db : openRepository(db ?? {})).catch((err) => {
+    console.error('database: unavailable, using the JSON history only:', err.code ?? err.name);
+    return null;
+  });
+  app.locals.repo = repoReady;
+  app.use(express.json({ limit: '100kb' }));
+  // runs and re-checks have their own tighter limits; everything else under /api the read limit
+  app.use('/api', (req, res, next) => (req.method === 'POST' && /^\/(runs?|recheck)\/?$/.test(req.path) ? next() : limiter.read(req, res, next)));
   const cacheDirUsed = cacheDir === undefined ? CACHE_DIR : cacheDir;
   let lastRun = null; // { runId, mode, startedAt, finishedAt, outcome, gatekeeper? }
 
-  app.get('/api/health', (_req, res) => {
+  app.get('/api/health', async (_req, res) => {
     res.json({
       ok: true,
       modes: MODES,
+      mode: defaultMode(),
       defaultMode: defaultMode(),
-      tinyfishKeyPresent: hasApiKey(), // yes/no only; the key itself never leaves client.js
+      keyPresent: hasApiKey() ? 'yes' : 'no', // yes/no only; the key itself never leaves client.js
+      tinyfishKeyPresent: hasApiKey(),
       lastRecording: lastRealRecording(),
       opportunities: process.env.OPPORTUNITIES !== 'off',
       cache: cacheStats(cacheDirUsed),
+      limits: { ...limiter.settings, openEventStreams: limiter.openStreams() },
+      database: await repoReady.then((r) => r?.info() ?? { kind: 'none', fallbackReason: 'database unavailable; the JSON history is used' }),
+      lastRunAt: lastRun?.finishedAt ?? lastRun?.startedAt ?? null,
       lastRun,
     });
   });
 
-  app.post(['/api/runs', '/api/run'], (req, res) => {
+  // Saved runs from the database: newest first, and one run with its plan items.
+  app.get('/api/runs', async (req, res, next) => {
+    try {
+      const repo = await repoReady;
+      if (!repo) return res.json({ store: 'json', runs: history.list().map(summarize) });
+      res.json({ store: repo.info().kind, runs: await repo.runs.list({ limit: req.query.limit }) });
+    } catch (err) {
+      next(err);
+    }
+  });
+  app.get('/api/runs/:runId', async (req, res, next) => {
+    try {
+      const repo = await repoReady;
+      const run = repo && (await repo.runs.get(req.params.runId));
+      if (!run) return res.status(404).json({ error: 'no saved run with that id' });
+      const profile = run.profileId ? await repo.profiles.get(run.profileId) : null;
+      res.json({ store: repo.info().kind, run, profile, unknown: unknownFields(profile), items: await repo.planItems.listByRun(run.id) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post(['/api/runs', '/api/run'], limiter.run, validate(schemas.run), (req, res) => {
     const body = req.body ?? {};
     const mode = body.mode ?? defaultMode();
     const start = starters[mode];
@@ -139,7 +189,7 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
     Promise.resolve()
       .then(() => start(run, body, { record, client, cacheDir }))
       .catch((err) => {
-        console.error(`run ${run.id} failed:`, err.message);
+        console.error(`run ${run.id} failed:`, redact(err.message));
         if (!run.closed) run.emit('run.failed', { payload: { message: err.message } });
       })
       .finally(() => {
@@ -147,11 +197,18 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
         const end = run.history.findLast((e) => e.kind === 'run.complete' || e.kind === 'run.failed');
         // run history: every completed run with a plan (fake test runs are not saved)
         if (mode !== 'fake') {
+          let entry = null;
           try {
-            const entry = entryFromRun(run, { mode });
+            entry = entryFromRun(run, { mode });
             if (entry) history.add(entry);
           } catch (err) {
             console.error('history:', err.message);
+          }
+          if (entry) {
+            const rows = rowsFromEntry(entry, { startedAt: mine.startedAt, finishedAt: new Date().toISOString(), status: end?.kind === 'run.complete' ? 'complete' : 'failed' });
+            repoReady
+              .then((repo) => repo?.saveRun(rows))
+              .catch((err) => console.error('database: run not saved:', err.code ?? err.name));
           }
         }
         Object.assign(mine, {
@@ -172,7 +229,7 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
     res.json({ control: run.replay ? run.control ?? null : null, closed: run.closed });
   });
 
-  app.post('/api/runs/:runId/control', (req, res) => {
+  app.post('/api/runs/:runId/control', validate(schemas.control), (req, res) => {
     const run = getRun(req.params.runId);
     if (!run) return res.status(404).json({ error: 'run not found' });
     if (!run.control || !run.replay) return res.status(409).json({ error: 'only replays can be paused or sped up' });
@@ -190,7 +247,7 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
     res.json({ default: lastRealRecording(), recordings: await listRecordings() });
   });
 
-  app.get(['/api/runs/:runId/events', '/api/run/:runId/events'], (req, res) => {
+  app.get(['/api/runs/:runId/events', '/api/run/:runId/events'], limiter.sse, (req, res) => {
     const run = getRun(req.params.runId);
     if (!run) return res.status(404).json({ error: 'run not found' });
     streamRun(req, res, run);
@@ -232,7 +289,7 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
 
   // Re-run the Judge and Ranker on a finished plan with an edited profile (no fetching).
   // Body: { runId | historyId, profile }.
-  app.post('/api/rejudge', (req, res) => {
+  app.post('/api/rejudge', validate(schemas.rejudge), (req, res) => {
     const body = req.body ?? {};
     const run = body.runId ? getRun(body.runId) : null;
     const plan = (run && planOf(run)) ?? (body.historyId ? history.get(body.historyId)?.plan : null) ?? (body.runId ? history.get(body.runId)?.plan : null);
@@ -253,7 +310,7 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
 
   // Watchtower: re-fetch the sources of a plan's items now and report real changes only.
   // Body: { runId } (preferred) or { items: [{ opportunityId, title, deadline, source, sourceUrl }] }.
-  app.post('/api/recheck', async (req, res) => {
+  app.post('/api/recheck', limiter.recheck, validate(schemas.recheck), async (req, res) => {
     if (!hasApiKey() && !client) return res.status(503).json({ error: 'Re-check reads live pages, so it needs the TinyFish key on the server. Nothing was checked.' });
     const body = req.body ?? {};
     let items = null;
@@ -280,5 +337,7 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
     }
   });
 
+  app.use('/api', (_req, res) => res.status(404).json({ error: 'no such API route' }));
+  app.use(errorHandler());
   return app;
 }

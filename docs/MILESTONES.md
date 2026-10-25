@@ -183,6 +183,24 @@ Time budget for 24 h: S1 about 4 h → S2 about 4 h → S3 about 5 h → S4 abou
 
 ---
 
+## Backend layer (branch `backend-layer`, 2026-10-25)
+
+### Done ✅
+- ✅ Repository layer (`server/src/db/`): profiles, runs, planItems, sources over one SQL implementation with two drivers: Postgres (`pg`, only when `DATABASE_URL` is set) and a local SQLite fallback (`node:sqlite`, no flag in Node 24). Migrations; `source_url` and `last_checked` NOT NULL; `deadline` nullable; status limited to match / conditional / unclear / no; parameterised queries only.
+- ✅ Automatic fallback: an unreachable or failing Postgres switches to the local store, shown in `/api/health` (`database`). The JSON history and recordings are unchanged.
+- ✅ `GET /api/runs`, `GET /api/runs/:runId`, and a "Saved runs" section in the History drawer.
+- ✅ Security: helmet, CORS allowlist (dev origins + `PUBLIC_ORIGIN`), 100 kB body limit, zod on every POST body, a central error handler (no stack traces), a request logger with no body, query or profile, and redaction of the key and URL credentials.
+- ✅ Inbound rate limits: 10 runs and 10 re-checks per minute per IP, a looser read limit, a per-IP SSE stream cap; 429 with `Retry-After`. Outbound: the Gatekeeper now also honours TinyFish's `Retry-After`.
+- ✅ Plan tags renamed: "Source re-checked HH:MM" (Verifier) and "Rule awaiting review" (Judge), two chips with tooltips.
+- ✅ `/api/health`: mode, database in use, key present (yes/no), cache, limits, last run time; shown in the System view.
+- Tests: server 62 pass plus 1 skipped (needs `TEST_DATABASE_URL`), web 8.
+
+### Not done
+- Not tested against a real Postgres server (none on the dev machine); the Postgres driver is tested through a pg-compatible stand-in.
+- CDN, load balancer, shared SSE event store, Postgres row-level security and TEE: **planned, not built** (docs/BACKEND_AND_SECURITY.md).
+
+---
+
 ## Stage 6: Mock mode, polish and rehearsal (about 4 h)
 
 **Goal:** the demo never breaks on stage.

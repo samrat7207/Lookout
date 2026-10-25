@@ -173,3 +173,23 @@ test('fallback: a failed live fetch uses the older cached copy, marked stale, wi
   assert.equal(res.results[0].text, 'old text');
   assert.ok(events.some((e) => e.kind === 'fallback' && /proxy_error/.test(e.reason)));
 });
+
+test("backoff: TinyFish's Retry-After is honoured (never retried sooner), capped at 30 s", async () => {
+  const client = mockClient({ pages: { [URL_A]: 'ok' }, failures: [{ code: 'HTTP_429', message: 'slow down', status: 429 }] });
+  // TinyFishError keeps known fields only; the client sets retryAfter from the header
+  const orig = client.fetchPages;
+  let first = true;
+  client.fetchPages = async (args) => {
+    try {
+      return await orig(args);
+    } catch (err) {
+      if (first) err.retryAfter = '7';
+      first = false;
+      throw err;
+    }
+  };
+  const { gk, c, events } = gatekeeper(client, { baseDelayMs: 1000, robots: false });
+  await gk.fetchPages({ urls: [URL_A] });
+  assert.ok(c.slept.includes(7000), `slept ${c.slept}`);
+  assert.equal(events.find((e) => e.kind === 'rate.limited').retryInMs, 7000);
+});

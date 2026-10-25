@@ -22,6 +22,9 @@ export function initialState() {
     plan: null,
     kits: 0,
     kitsById: {},
+    kitBuilds: 0, // kit.building events (Kit Builder at the Application Desk)
+    kitsRebuilt: false, // true when those were rebuilt from an older recording
+    conflictChecks: [], // conflict.check payloads (Conflict Checker at the Auditor's Office)
     headline: null,
     watchtower: null,
     summary: null,
@@ -39,6 +42,9 @@ export function initialState() {
     error: null,
   };
 }
+
+// the four corner buildings and the agent who works at each (city v3)
+export const CORNER_OF = { gatekeeper: 'checkpoint', verifier: 'inspection', 'kit-builder': 'appdesk', 'conflict-checker': 'auditor' };
 
 const isUrl = (s) => typeof s === 'string' && /^https?:\/\//.test(s);
 
@@ -94,6 +100,8 @@ export function describe(evt) {
     case 'plan.updated': return `Plan updated: ${p.items?.length ?? 0} items`;
     case 'plan.ready': return `Plan ready: ${p.items?.length ?? 0} items${p.conflicts?.length ? `, ${p.conflicts.length} conflicts` : ''}`;
     case 'kit.ready': return `Application Kit ready: ${p.title ?? p.id}`;
+    case 'kit.building': return `Kit Builder preparing a read-only kit: ${p.title ?? p.opportunityId}${p.derived ? ' (rebuilt from the recording)' : ''}`;
+    case 'conflict.check': return `Conflict check, ${p.title}: ${p.result === 'warning' ? 'may not be combinable' : 'no conflict in this plan'}${p.derived ? ' (rebuilt from the recording)' : ''}`;
     case 'watchtower.checked': return `Checked ${p.schemesTracked ?? '?'} schemes, no date changes`;
     case 'watchtower.change': return `Date changed: ${p.changes?.length ?? 0} schemes`;
     case 'run.assembled': return `Everyone gathered at Town Hall (${p.agents?.length ?? 0} agents)${p.derived ? ' · rebuilt from the recording' : ''}`;
@@ -236,7 +244,10 @@ export function reduce(state, evt) {
 
     case 'agent.working': {
       const url = isUrl(p.target) ? p.target : null;
-      agentPatch((a) => ({ status: 'working', target: evt.building ?? a.target, tool: p.tool ?? null, url: url ?? a.url, retrying: false }));
+      // the Verifier always works at the Inspection Office (older recordings say Town Hall)
+      const at = evt.agentId === 'verifier' ? 'inspection' : evt.building;
+      agentPatch((a) => ({ status: 'working', target: at ?? a.target, tool: p.tool ?? null, url: url ?? a.url, retrying: false }));
+      if (evt.agentId === 'verifier' && evt.building !== 'inspection') buildingPatch('inspection', { status: 'busy', tool: p.tool ?? null });
       buildingPatch(evt.building, (b) => {
         const key = p.target ?? p.label ?? 'call';
         // a new call means the previous one finished
@@ -298,6 +309,7 @@ export function reduce(state, evt) {
       break;
 
     case 'agent.done': {
+      if (CORNER_OF[evt.agentId] && evt.building !== CORNER_OF[evt.agentId] && s.buildings[CORNER_OF[evt.agentId]]) buildingPatch(CORNER_OF[evt.agentId], { status: 'done' });
       const b = s.buildings[evt.building];
       const failedSources = b ? Object.values(b.sources).filter((x) => x.status === 'failed').length : 0;
       const findings = p.findings ?? 0;
@@ -327,8 +339,27 @@ export function reduce(state, evt) {
     case 'kit.ready':
       s.kits += 1;
       if (p.id) s.kitsById = { ...s.kitsById, [p.id]: p };
-      agentPatch({ status: 'working' });
-      buildingPatch('townhall', { status: 'busy' });
+      // new runs: the Kit Builder at the Application Desk; older recordings: the Mayor at Town Hall
+      if (evt.agentId === 'kit-builder') {
+        agentPatch({ status: 'working', target: 'appdesk' });
+        buildingPatch('appdesk', { status: 'busy' });
+      } else {
+        agentPatch({ status: 'working' });
+        buildingPatch('townhall', { status: 'busy' });
+      }
+      break;
+
+    case 'kit.building':
+      s.kitBuilds += 1;
+      if (p.derived) s.kitsRebuilt = true;
+      agentPatch({ status: 'working', target: 'appdesk' });
+      buildingPatch('appdesk', { status: 'busy' });
+      break;
+
+    case 'conflict.check':
+      s.conflictChecks = [...s.conflictChecks, p];
+      agentPatch({ status: 'working', target: 'auditor' });
+      buildingPatch('auditor', { status: 'busy' });
       break;
 
     case 'watchtower.checked':
@@ -360,7 +391,7 @@ export function reduce(state, evt) {
 
     case 'verify.result':
       s.verification = { ...s.verification, [p.opportunityId]: { ...p, building: evt.building ?? null } };
-      agentPatch({ status: 'working' });
+      agentPatch({ status: 'working', target: 'inspection' });
       break;
 
     case 'cache.hit':
@@ -378,7 +409,9 @@ export function reduce(state, evt) {
         if (p.host && !g.blockedHosts.includes(p.host)) g.blockedHosts = [...g.blockedHosts, p.host];
       }
       s.gate = g;
-      agentPatch({ status: evt.kind === 'blocked' ? 'failed' : 'working' });
+      // the Gatekeeper works at the Checkpoint (older recordings say Town Hall)
+      agentPatch({ status: evt.kind === 'blocked' ? 'failed' : 'working', ...(evt.agentId === 'gatekeeper' && { target: 'checkpoint' }) });
+      if (evt.agentId === 'gatekeeper') buildingPatch('checkpoint', { status: 'busy' });
       break;
     }
 

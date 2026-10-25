@@ -73,3 +73,30 @@ test('unknown kinds are ignored, and a new runId starts a fresh state', () => {
   assert.equal(other.agentOrder.length, 0);
   assert.equal(other.plan, null);
 });
+
+test('corner agents: Kit Builder, Conflict Checker, Verifier and Gatekeeper go to their corner buildings', () => {
+  const ev = (seq, kind, agentId, building, payload = {}) => ({ v: 2, runId: 'r-corners', seq, t: seq * 10, kind, agentId, building, payload });
+  let s = initialState();
+  const events = [
+    ev(1, 'agent.spawned', 'kit-builder', 'townhall', { name: 'Kit', role: 'Kit Builder' }),
+    ev(2, 'agent.spawned', 'conflict-checker', 'townhall', { name: 'Cora', role: 'Conflict Checker' }),
+    ev(3, 'cache.hit', 'gatekeeper', 'townhall', { url: 'https://x' }), // older recording: Town Hall
+    ev(4, 'agent.working', 'verifier', 'townhall', { tool: 'fetch', target: '3 pages' }),
+    ev(5, 'verify.result', 'verifier', 'nsp', { opportunityId: 'a', status: 'changed', reason: 'moved' }),
+    ev(6, 'kit.building', 'kit-builder', 'appdesk', { opportunityId: 'a', title: 'A', derived: true }),
+    ev(7, 'kit.ready', 'kit-builder', 'appdesk', { id: 'kit:a', title: 'A' }),
+    ev(8, 'conflict.check', 'conflict-checker', 'auditor', { ruleId: 'r1', title: 'R1', result: 'warning' }),
+    ev(9, 'conflict.check', 'conflict-checker', 'auditor', { ruleId: 'r2', title: 'R2', result: 'clear' }),
+  ];
+  for (const e of events) s = reduce(s, e);
+  assert.equal(s.agents.gatekeeper.target, 'checkpoint');
+  assert.equal(s.agents.verifier.target, 'inspection');
+  assert.equal(s.agents['kit-builder'].target, 'appdesk');
+  assert.equal(s.agents['conflict-checker'].target, 'auditor');
+  assert.equal(s.kitBuilds, 1);
+  assert.equal(s.kits, 1);
+  assert.ok(s.kitsRebuilt);
+  assert.equal(s.conflictChecks.length, 2);
+  assert.equal(s.buildings.auditor.status, 'busy');
+  assert.match(s.log.find((l) => l.kind === 'kit.building').text, /rebuilt from the recording/);
+});

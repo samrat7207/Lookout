@@ -88,13 +88,30 @@ function statusChip(b) {
   return { cls: 'done', text: failed ? `${found} · ${failed} source failed` : found, warn: failed > 0 };
 }
 
+/** Corner buildings (city v3): real counts from their agent's events, or nothing before the first one. */
+export function cornerCounts(state) {
+  if (!state) return {};
+  const g = state.gate ?? {};
+  const v = Object.values(state.verification ?? {});
+  const vt = (k) => v.filter((x) => x.status === k).length;
+  const checks = state.conflictChecks ?? [];
+  const gateSeen = (g.hits ?? 0) + (g.misses ?? 0) + (g.rateLimited ?? 0) + (g.blocked ?? 0) + (g.fallbacks ?? 0);
+  return {
+    checkpoint: gateSeen ? `${g.hits} cache hits · ${g.rateLimited} backoffs · ${g.blocked} blocked · ${g.fallbacks} fallbacks` : null,
+    inspection: v.length ? `${vt('verified')} re-checked · ${vt('changed')} changed · ${vt('unverified')} could not verify` : null,
+    appdesk: state.kitBuilds ? `${state.kits} of ${state.kitBuilds} kits ready (read-only)` : null,
+    auditor: checks.length ? `${checks.length} checks · ${checks.filter((c) => c.result === 'warning').length} may not be combinable` : null,
+  };
+}
+
 /** DOM part: one pill per landmark; the hovered one expands into a name card. */
-export function LandmarkLabels({ hover, buildings = {}, selected, onSelect }) {
+export function LandmarkLabels({ hover, buildings = {}, counts = {}, selected, onSelect }) {
   return (
     <div className="labels" aria-hidden={!hover}>
       {LANDMARKS.map((lm) => {
         const active = hover?.id === lm.id || (selected?.type === 'building' && selected.id === lm.id);
-        const chip = statusChip(buildings[lm.id]);
+        const base = statusChip(buildings[lm.id]);
+        const chip = counts[lm.id] ? { cls: base?.cls === 'busy' ? 'busy' : 'done', text: counts[lm.id] } : base;
         return (
           <div
             key={lm.id}

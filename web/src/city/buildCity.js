@@ -24,7 +24,8 @@ const LOT = {
   '0,14': '#9fd38a', // park
   '14,14': '#e6ddf0', // opportunities plaza
 };
-// outer districts: offices (north), campus (south), homes (west), market (east), parks (corners)
+// outer districts: offices (north), campus (south), homes (west), market (east); the corners hold
+// the city v3 helper buildings (Checkpoint, Inspection Office, Application Desk, Auditor's Office)
 function districtOf(bx, bz) {
   if (Math.abs(bx) === 28 && Math.abs(bz) === 28) return 'park';
   if (bz === -28) return 'offices';
@@ -274,8 +275,62 @@ function cornerPark(b, r, cx, cz) {
   }
 }
 
+/** City v3 corners: a small building per helper role, with a little park around it. */
+function cornerGreen(b, r, cx, cz) {
+  b.flat(cx, G, cz, 10.2, 0.02, 10.2, '#9fd38a');
+  for (const [dx, dz] of [[-4.0, -4.0], [4.0, -4.0], [-4.0, 4.0], [4.0, 4.0]]) tree(b, r, cx + dx, cz + dz, 0.7, 'round');
+}
+
+/** Checkpoint (Gatekeeper): a guard booth with a striped boom barrier and a gantry. */
+function checkpoint(b, r, cx, cz) {
+  cornerGreen(b, r, cx, cz);
+  b.box(cx, G, cz - 0.6, 6.4, 3.0, 4.2, '#c9d3c1');
+  b.box(cx, G + 3.0, cz - 0.6, 6.8, 0.3, 4.6, '#6a994e');
+  b.box(cx - 2.0, G, cz + 1.56, 1.0, 1.9, 0.06, '#5b4636');
+  for (let i = 0; i < 4; i++) b.box(cx - 0.4 + i * 0.95, G + 1.4, cz + 1.56, 0.6, 0.8, 0.05, '#bfe3f2');
+  // boom barrier in front, red and white
+  b.box(cx + 2.9, G, cz + 3.0, 0.3, 1.0, 0.3, '#444c55');
+  for (let k = 0; k < 6; k++) b.box(cx + 2.6 - k * 0.6, G + 0.9, cz + 3.0, 0.6, 0.16, 0.16, k % 2 ? '#ffffff' : '#e63946');
+  b.cyl(cx - 2.6, G + 3.3, cz - 1.8, 0.5, 1.2, '#ffd166');
+}
+
+/** Inspection Office (Verifier): an office with a big magnifier sign on the roof. */
+function inspectionOffice(b, r, cx, cz) {
+  cornerGreen(b, r, cx, cz);
+  building(b, r, { x: cx, z: cz - 0.6, w: 6.0, d: 4.2, floors: 3, color: '#cfd8f2' });
+  b.cyl(cx + 1.6, G + 4.6, cz - 0.6, 1.4, 0.18, '#5e60ce');
+  b.cyl(cx + 1.6, G + 4.62, cz - 0.6, 1.0, 0.18, '#bfe3f2');
+  b.tilted(cx + 0.7, G + 4.1, cz - 0.6, 0.22, 0.22, 1.2, '#5e60ce', 0.7);
+}
+
+/** Application Desk (Kit Builder): a low counter hall with filing drawers and an awning. */
+function applicationDesk(b, r, cx, cz) {
+  cornerGreen(b, r, cx, cz);
+  b.box(cx - 0.6, G, cz, 4.6, 2.8, 6.2, '#f6d6c8');
+  b.box(cx - 0.6, G + 2.8, cz, 5.0, 0.28, 6.6, '#e07a5f');
+  for (let k = 0; k < 6; k++) b.tilted(cx + 1.95, G + 2.2, cz - 2.5 + k * 1.0, 0.7, 0.05, 1.0, k % 2 ? '#ffffff' : '#e07a5f', 0.45);
+  b.box(cx + 2.0, G, cz, 0.6, 1.0, 4.4, '#8d6e63');
+  for (let k = 0; k < 3; k++) b.box(cx - 0.6, G + 3.08 + k * 0.3, cz - 1.8, 1.0, 0.26, 1.4, ['#f2cc8f', '#81b29a', '#3d405b'][k]);
+}
+
+/** Auditor's Office (Conflict Checker): a columned office with a balance on the pediment. */
+function auditorsOffice(b, r, cx, cz) {
+  cornerGreen(b, r, cx, cz);
+  b.box(cx + 0.6, G, cz, 4.6, 0.3, 6.4, '#d9ccb1');
+  b.box(cx + 0.9, G + 0.3, cz, 4.0, 3.2, 6.0, '#efe6d6');
+  for (let k = 0; k < 4; k++) b.cyl(cx - 1.5, G + 0.3, cz - 2.2 + k * 1.45, 0.36, 3.2, '#ffffff');
+  b.box(cx + 0.6, G + 3.5, cz, 4.8, 0.3, 6.6, '#8d6e63');
+  b.box(cx + 0.6, G + 3.8, cz, 0.16, 1.1, 0.16, '#c9a227');
+  b.box(cx + 0.6, G + 4.8, cz, 0.12, 0.08, 2.2, '#c9a227');
+  b.cyl(cx + 0.6, G + 4.3, cz - 1.0, 0.6, 0.08, '#c9a227');
+  b.cyl(cx + 0.6, G + 4.3, cz + 1.0, 0.6, 0.08, '#c9a227');
+}
+
+const CORNER_BUILDINGS = { '-28,-28': checkpoint, '28,-28': inspectionOffice, '-28,28': applicationDesk, '28,28': auditorsOffice };
+
 function outerDistricts(b, r) {
-  const make = { offices, campus, homes: homesDistrict, market, park: cornerPark };
+  const corner = (b, r, cx, cz) => (CORNER_BUILDINGS[`${cx},${cz}`] ?? cornerPark)(b, r, cx, cz);
+  const make = { offices, campus, homes: homesDistrict, market, park: corner };
   for (const bx of BLOCK_CENTERS) for (const bz of BLOCK_CENTERS) {
     const d = districtOf(bx, bz);
     if (d) make[d](b, r, bx, bz);

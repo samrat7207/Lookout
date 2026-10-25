@@ -1,51 +1,8 @@
-// Walkable paths. Citizens use the sidewalk graph (block corners plus crosswalks);
-// agents use the road graph (inner road lines) between Town Hall and the landmarks.
+// Walkable paths for the agents (the only people in the city, and they move only on
+// events): the road graph (inner road lines) between Town Hall and the landmarks.
 // Pure data and maths, no three.js, so it can be unit tested.
 
-import { BLOCK_CENTERS, KERB_H, LOT_TOP, ROAD_TOP } from './layout.js';
-
-// ---------- sidewalks (citizens) ----------
-
-export const SIDEWALK_E = 5.2; // sidewalk centre line, from the block centre
-export const SIDEWALK_Y = KERB_H;
-export const CROSSING_Y = ROAD_TOP;
-
-/** Nodes are block corners; edges run around each block and across the inner roads at the crosswalks. */
-export function sidewalkGraph() {
-  const nodes = [];
-  const index = new Map();
-  const key = (x, z) => `${x},${z}`;
-  for (const bx of BLOCK_CENTERS) {
-    for (const bz of BLOCK_CENTERS) {
-      for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
-        const x = bx + sx * SIDEWALK_E, z = bz + sz * SIDEWALK_E;
-        index.set(key(x, z), nodes.length);
-        nodes.push({ x, z, links: [] });
-      }
-    }
-  }
-  const link = (a, b, crossing) => {
-    nodes[a].links.push({ to: b, crossing });
-    nodes[b].links.push({ to: a, crossing });
-  };
-  const at = (x, z) => index.get(key(x, z));
-  for (const bx of BLOCK_CENTERS) {
-    for (const bz of BLOCK_CENTERS) {
-      const e = SIDEWALK_E;
-      const c = [at(bx - e, bz - e), at(bx + e, bz - e), at(bx + e, bz + e), at(bx - e, bz + e)];
-      for (let i = 0; i < 4; i++) link(c[i], c[(i + 1) % 4], false);
-    }
-  }
-  // crosswalks: corner to the facing corner of the neighbouring block (inner roads only)
-  for (const n of nodes) {
-    for (const [dx, dz] of [[1, 0], [0, 1]]) {
-      const gap = 14 - 2 * SIDEWALK_E;
-      const j = at(n.x + dx * gap, n.z + dz * gap);
-      if (j !== undefined) link(nodes.indexOf(n), j, true);
-    }
-  }
-  return nodes;
-}
+import { KERB_H, LOT_TOP, ROAD_TOP } from './layout.js';
 
 // ---------- roads (agents) ----------
 
@@ -58,7 +15,15 @@ const PLACE_DEFS = {
   watchtower: { spot: [0.6, -11.1], walk: [0.8, -8.8], road: [0.8, -7] },
   foundations: { spot: [-10.0, 16.5], walk: [-8.8, 16.5], road: [-7, 16.5] },
   opportunities: { spot: [12.6, 14.2], walk: [8.8, 14.2], road: [7, 14.2] },
+  // the Cafeteria (handoffs) and the Library (the Librarian) face the inner roads
+  cafeteria: { spot: [10.9, 0.0], walk: [8.8, 0.4], road: [7, 0.4] },
+  library: { spot: [-10.2, 0.6], walk: [-8.8, 0.6], road: [-7, 0.6] },
 };
+// two agents meet at a Cafeteria table: one on each side
+const CAFE_SLOTS = [[-0.75, 0], [0.75, 0], [0, -0.75], [0, 0.75], [-0.75, 0.75], [0.75, -0.75]];
+// the assembly: a half ring on the plaza, facing the Mayor at the hall door
+const ASSEMBLY_C = [0, 4.4];
+const ASSEMBLY_R = 2.8;
 const TOWNHALL_EXITS = [
   { walk: [-5.2, 1.2], road: [-7, 1.2] },
   { walk: [5.2, 1.2], road: [7, 1.2] },
@@ -75,6 +40,15 @@ export const AGENT_Y = LOT_TOP;
 export const HELPER_SPOTS = { gatekeeper: [5.2, 4.3], verifier: [-3.0, 3.4], profiler: [2.9, 3.5] };
 
 export function spotFor(place, slot, isMayor = false, agentId = null) {
+  if (place === 'assembly') {
+    if (isMayor) return MAYOR_SPOT;
+    const a = Math.PI * (0.12 + 0.76 * (((slot * 0.618) % 1)));
+    return [ASSEMBLY_C[0] - Math.cos(a) * ASSEMBLY_R, ASSEMBLY_C[1] - Math.sin(a) * ASSEMBLY_R * 0.6 - 0.6];
+  }
+  if (place === 'cafeteria') {
+    const [dx, dz] = CAFE_SLOTS[slot % CAFE_SLOTS.length];
+    return [PLACE_DEFS.cafeteria.spot[0] + dx, PLACE_DEFS.cafeteria.spot[1] + dz];
+  }
   if (place === 'townhall') {
     if (isMayor) return MAYOR_SPOT;
     if (HELPER_SPOTS[agentId]) return HELPER_SPOTS[agentId];
@@ -84,7 +58,7 @@ export function spotFor(place, slot, isMayor = false, agentId = null) {
   return def ? def.spot : MAYOR_SPOT;
 }
 
-export const KNOWN_PLACES = ['townhall', ...Object.keys(PLACE_DEFS)];
+export const KNOWN_PLACES = ['townhall', 'assembly', ...Object.keys(PLACE_DEFS)];
 
 function roadGraph() {
   const nodes = new Map(); // id -> { x, z, links: Map<id, dist> }
@@ -119,7 +93,7 @@ function roadGraph() {
 const ROADS = roadGraph();
 
 function accessNodes(place) {
-  if (place === 'townhall') return TOWNHALL_EXITS.map((_, i) => `townhall:walk${i}`);
+  if (place === 'townhall' || place === 'assembly') return TOWNHALL_EXITS.map((_, i) => `townhall:walk${i}`);
   return PLACE_DEFS[place] ? [`${place}:walk`] : [];
 }
 
@@ -133,7 +107,8 @@ export function route(fromP, from, toXZ, to, lane = 0) {
   toXZ = [toXZ[0], toXZ[1], LOT_TOP];
   const starts = accessNodes(from);
   const ends = new Set(accessNodes(to));
-  if (!starts.length || !ends.size || from === to) return [fromXZ, toXZ];
+  const plaza = (p) => p === 'townhall' || p === 'assembly';
+  if (!starts.length || !ends.size || from === to || (plaza(from) && plaza(to))) return [fromXZ, toXZ];
 
   // Dijkstra from a virtual start linked to every access node of `from`
   const dist = new Map();

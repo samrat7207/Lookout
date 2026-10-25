@@ -52,10 +52,18 @@ IDs:
 | `rate.limited` | Gatekeeper is backing off | `{ call, attempt, retryInMs, reason }` |
 | `blocked` | Gatekeeper stopped for a host (403/429, bot block, captcha, robots.txt) | `{ host, url, reason, stoppedForHost }` |
 | `fallback` | Gatekeeper used an older cached copy after a failed fetch | `{ url \| call, reason, usingCacheFrom }` |
+| `run.assembled` | Every agent has gathered at Town Hall (after the spawns) | `{ at: "townhall", agents: [agentId...], derived? }` |
+| `plan.split` | The Mayor's briefing: who goes where | `{ mode, assignments: [{ agentId, name, to: building, task, sources? }], sources: [name...], derived? }`. Agents with `to: "townhall"` go to their posts; scouts leave on their own `agent.walking`. |
+| `handoff` | Data really passes between two agents (`building: "cafeteria"`) | `{ from: agentId, to: agentId, summary: "3 items found", count?, what?: "findings"\|"criteria"\|"plan items"\|"verifier results"\|"previous run", derived? }`. Emitted by the pipeline at: profiler → mayor (criteria), each scout → mayor (its findings, real count), mayor → verifier (plan items), verifier → mayor (results), librarian → mayor (previous run). |
+| `library.request` | The Mayor asks the Librarian for the last run (after `plan.split`) | `{ to: "librarian", want }` |
+| `library.result` | The Librarian read the saved runs | `{ found: bool, store: "postgres"\|"local"\|"none", previous: { runId, finishedAt, mode } \| null, summary }` |
+| `library.diff` | Just before `run.complete`: "since your last run" | `{ previous: null, note }` or `{ previous: { runId, finishedAt, mode, items }, newItems, closedItems, noLongerListed, deadlineChanged: [{ id, title, from, to }], unchanged }`, from stored rows and the new plan only |
 | `run.complete` | Everything has settled (the Deep Diver may still be out) | `{ durationMs, findings: n, errors: n }` |
 | `run.failed` | An unrecoverable error occurred (should be rare) | `{ message }` |
 
 The frontend must **ignore unknown kinds** without crashing.
+
+**Backwards compatibility.** Recordings made before `run.assembled`, `plan.split` and `handoff` existed are upgraded when they are replayed (`upgradeLegacy` in `server/src/pipelineEvents.js`): the same events are rebuilt only from that recording's own events (its spawned agents, mode, `agent.done` counts, the last `plan.updated` and the Verifier's tallies), marked `derived: true`, and the recording file is never changed. The Librarian runs live against the database in every mode, so recorded `library.*` and Librarian events are skipped on replay.
 
 ## Opportunity
 

@@ -102,6 +102,9 @@ function agentLook(id) {
   return { upper: mergeGeometries(parts), sleeve, pants };
 }
 const FACE_CAMERA = Math.PI / 4; // the iso camera looks from +x +z
+const HANDOFF_DWELL = 1.6; // seconds of run time the two agents stand together at the Cafeteria
+// the giver and the receiver take facing seats at the table
+const cafeSlot = (id, visit) => (visit?.from === id ? 0 : visit?.to === id ? 1 : 2 + (id.length % 4));
 
 /** Live positions, shared with the DOM tag tracker and the citizens (who step aside). id -> THREE.Vector3 */
 export const positions = new Map();
@@ -152,16 +155,29 @@ function Character({ agent, playback, selected, onSelect, lane }) {
     const dt = paused ? 0 : Math.min(delta, 1) * speed;
     if (s.born < 0) s.born = time;
 
+    // a handoff event sends both agents to the Cafeteria first; they meet, the item
+    // passes, and then they carry on to their target from the events
+    const visit = agent.visit;
+    if (visit && visit.seq !== s.visitSeq) {
+      s.visitSeq = visit.seq;
+      s.dwell = 0;
+    }
+    const want = visit && s.visitDone !== visit.seq ? visit.place : agent.target;
+    if (want === visit?.place && s.target === want && !s.path) {
+      s.dwell = (s.dwell ?? 0) + dt;
+      if (s.dwell > HANDOFF_DWELL) s.visitDone = visit.seq;
+    }
+
     // a new target from the events: plan a route from wherever we are now
-    if (agent.target !== s.target) {
-      const [tx, tz] = spotFor(agent.target, agent.slot, isMayor, agent.id);
-      const path = route([s.pos.x, s.pos.z, s.pos.y], s.place, [tx, tz], agent.target, lane);
+    if (want !== s.target) {
+      const [tx, tz] = spotFor(want, want === 'cafeteria' ? cafeSlot(agent.id, visit) : agent.slot, isMayor, agent.id);
+      const path = route([s.pos.x, s.pos.z, s.pos.y], s.place, [tx, tz], want, lane);
       // brisk toy walk: a trip takes about 3 s of run time whatever its length
       s.speed = THREE.MathUtils.clamp(pathLength(path) / 3, 3.5, 9);
       s.path = path;
       s.seg = 1;
-      s.target = agent.target;
-      s.place = agent.target;
+      s.target = want;
+      s.place = want;
     }
 
     let moving = false;
@@ -262,23 +278,75 @@ function TagTracker() {
     todo.sort((a, b) => b.y - a.y);
     for (const t of todo) {
       let y = t.y;
+      let lifts = 0;
       for (let guard = 0; guard < 8; guard++) {
         const hit = placed.find((p) => Math.abs(p.x - t.x) < (p.w + t.w) / 2 && Math.abs(p.y - y) < p.h);
         if (!hit) break;
         y = hit.y - hit.h;
+        lifts++;
       }
       placed.push({ ...t, y });
       t.el.style.visibility = 'visible';
+      // a crowd: tags stack, and the ones lifted high fade so the stack stays readable
+      t.el.style.opacity = lifts >= 3 ? '0.45' : lifts === 2 ? '0.7' : '1';
       t.el.style.transform = `translate(${t.x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%)`;
     }
   });
   return null;
 }
 
+const PARCEL_GEO = new THREE.BoxGeometry(0.22, 0.16, 0.16);
+const PARCEL_MAT = new THREE.MeshStandardMaterial({ color: '#ffb703', emissive: '#7a4a00', flatShading: true });
+const PASS_S = 0.9; // the item takes this long to pass between the two agents
+
+/**
+ * The item passing in a handoff: once the giver and the receiver are both at the
+ * Cafeteria, a small parcel travels from one to the other. One parcel per handoff event.
+ */
+function HandoffParcels({ handoffs, playback }) {
+  const meshes = useRef([]);
+  const live = useRef(new Map()); // seq -> { from, to, p (0..1) or -1 waiting }
+  const playRef = useRef(playback);
+  playRef.current = playback;
+  for (const h of handoffs) if (!live.current.has(h.seq) && !(live.current.doneSeqs?.has(h.seq))) live.current.set(h.seq, { from: h.from, to: h.to, p: -1, wait: 0 });
+  useFrame((_, delta) => {
+    const dt = playRef.current.paused ? 0 : Math.min(delta, 1) * (playRef.current.speed || 1);
+    const [cx, cz] = spotFor('cafeteria', 0);
+    let i = 0;
+    live.current.doneSeqs ??= new Set();
+    for (const [seq, h] of live.current) {
+      const a = positions.get(h.from), b = positions.get(h.to);
+      h.wait += dt;
+      if (!a || !b || h.wait > 30) {
+        live.current.delete(seq);
+        live.current.doneSeqs.add(seq);
+        continue;
+      }
+      const near = (v) => Math.hypot(v.x - cx, v.z - cz) < 2.2;
+      if (h.p < 0 && near(a) && near(b)) h.p = 0;
+      if (h.p >= 0) h.p += dt / PASS_S;
+      if (h.p > 1) {
+        live.current.delete(seq);
+        live.current.doneSeqs.add(seq);
+        continue;
+      }
+      const m = meshes.current[i++];
+      if (!m || h.p < 0) continue;
+      m.visible = true;
+      m.position.lerpVectors(a, b, h.p);
+      m.position.y += 1.05 + Math.sin(h.p * Math.PI) * 0.35;
+      m.rotation.y += dt * 4;
+    }
+    for (; i < meshes.current.length; i++) if (meshes.current[i]) meshes.current[i].visible = false;
+  });
+  return [0, 1, 2, 3].map((k) => <mesh key={k} ref={(m) => (meshes.current[k] = m)} geometry={PARCEL_GEO} material={PARCEL_MAT} visible={false} castShadow />);
+}
+
 /** In-scene part: one character per agent in the run. */
 export function Agents({ state, playback, selected, onSelect }) {
   return (
     <>
+      <HandoffParcels key={state.runId} handoffs={state.handoffs ?? []} playback={playback} />
       {state.agentOrder.map((id, i) => (
         <Character
           key={`${state.runId}:${id}`}

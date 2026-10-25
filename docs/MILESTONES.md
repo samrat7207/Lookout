@@ -201,6 +201,27 @@ Time budget for 24 h: S1 about 4 h → S2 about 4 h → S3 about 5 h → S4 abou
 
 ---
 
+## City v2 (branch `city-v2`, 2026-10-25)
+
+### Done ✅
+- ✅ Citizens and all decorative walkers removed: only agents are people, and they move only on events. Trees, lamps and props stay.
+- ✅ Town Hall assembly: `run.assembled` and `plan.split` (live and scripted runs emit them; a 2.5 s briefing pause in live runs). The agents gather on the plaza, the briefing card shows the sources, who goes where and the mode, then they set off.
+- ✅ Cafeteria and handoffs: `handoff` events where data really passes (profiler → mayor, scout → mayor with the real count, mayor → verifier, verifier → mayor, librarian → mayor). The two agents meet at the Cafeteria and a parcel passes; the summary is in the event log.
+- ✅ Older recordings are upgraded on replay with the same events rebuilt from their own data, marked `derived` ("rebuilt from the recording" in the log); no recording file changed.
+- ✅ Library and the Librarian: reads the repository (Postgres or the local fallback) for the last completed run with the same state, category, course and year in a comparable mode (live/replay together, mock separately); `library.diff` before the run ends; "Since your last run" on the plan (new, closed, no longer listed, changed deadlines, from stored data only). Clicking the Library or the Librarian opens History.
+- ✅ A 5×5 city with offices, campus, homes and market districts and corner parks; name tags stack and fade when crowded. `?stats`: 120 draw calls, 134k triangles; about 2.2 ms median CPU per frame.
+- ✅ Profile form (prototype, Live runs): state, category, course, year, optional gender and income band; blanks stay unknown; consent note; "Delete this run" (`DELETE /api/runs/:runId`); server-side validation. The rules were checked only for Maharashtra, OBC, B.Tech, 2nd year, so any other profile gets "unclear, not checked for this profile" on every scholarship.
+- ✅ Verified against a real Postgres server (`DATABASE_URL` set in `server/.env`): Live, Replay and Mock saved and read back; the unreachable-database fallback still works.
+- Tests: server 69 pass plus 1 skipped (needs `TEST_DATABASE_URL`), web 8.
+
+### Not done
+- The income band is saved and shown but not used by the live Judge (Re-run with an exact income applies the limits).
+- Replay and Mock always replay the sample student; the profile form applies to Live only.
+- Hackathon matching uses only location and gender, so it is the same for every profile.
+- GPU frame time was not measured (the browser tab was in the background); the figure is CPU time per frame.
+
+---
+
 ## Stage 6: Mock mode, polish and rehearsal (about 4 h)
 
 **Goal:** the demo never breaks on stage.

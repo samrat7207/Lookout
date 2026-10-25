@@ -5,6 +5,7 @@ import * as recon from './fake/reconData.js';
 import { buildPlan } from './rank/ranker.js';
 import { buildKit } from './kit/buildKit.js';
 import { buildCriteria } from './profile/profiler.js';
+import { BRIEFING_MS, emitAssembly, emitHandoff } from './pipelineEvents.js';
 
 // The recon was taken on this date, so the fake run uses it as "today" and the
 // day counts match the data ("7 days left"). Live runs use the real IST date.
@@ -48,6 +49,7 @@ export async function runFake(run, opts = {}) {
     const { building } = AGENTS[agentId];
     const emit = (kind, payload, at = building) => run.emit(kind, { agentId, building: at, payload });
     return {
+      id: agentId,
       walk: (reason) => emit('agent.walking', { to: building, reason }, 'townhall'),
       work: (tool, target, label) => emit('agent.working', { tool, target, label }),
       progress: (text, tool) => emit('agent.progress', { text, ...(tool && { tool }) }),
@@ -59,10 +61,14 @@ export async function runFake(run, opts = {}) {
         errors++;
         emit('agent.error', payload);
       },
-      done: (n, t0) => emit('agent.done', { findings: n, durationMs: Date.now() - t0 }),
+      done: (n, t0) => {
+        doneCounts[agentId] = n;
+        emit('agent.done', { findings: n, durationMs: Date.now() - t0 });
+      },
       back: () => emit('agent.returning', { to: 'townhall' }),
     };
   };
+  const doneCounts = {};
 
   run.emit('run.started', { payload: { profile, mode: 'fake', today, agents: agentIds } });
   for (const id of agentIds) {
@@ -71,6 +77,9 @@ export async function runFake(run, opts = {}) {
   }
   run.emit('profile.ready', { agentId: 'profiler', building: 'townhall', payload: profiled });
   run.emit('agent.done', { agentId: 'profiler', building: 'townhall', payload: { findings: 0, durationMs: 0, unknown: profiled.unknown.length } });
+  emitHandoff(run, { from: 'profiler', to: 'mayor', summary: `criteria: ${profiled.known.length} known, ${profiled.unknown.length} unknown`, what: 'criteria' });
+  emitAssembly(run, agentIds, { mode: 'fake', names: Object.fromEntries(agentIds.map((id) => [id, AGENTS[id].name])) });
+  await sleep(BRIEFING_MS);
 
   const notApplicable = [...recon.NOT_APPLICABLE, ...recon.MAHADBT_SKIPPED.map(({ title, reason, sourceUrl }) => ({ title, reason: reason[0].toUpperCase() + reason.slice(1), sourceUrl }))];
   // the scripted run "checks" these sources; MahaDBT 2.0 is the one that fails
@@ -80,6 +89,8 @@ export async function runFake(run, opts = {}) {
   const returnHome = async (a) => {
     await sleep(600);
     a.back();
+    const n = doneCounts[a.id] ?? 0;
+    emitHandoff(run, { from: a.id, to: 'mayor', summary: `${n} item${n === 1 ? '' : 's'} found`, count: n, what: 'findings' });
     await sleep(2500); // the walk back
     run.emit('plan.updated', { agentId: 'mayor', building: 'townhall', payload: planNow() });
   };
@@ -199,6 +210,7 @@ export async function runFake(run, opts = {}) {
   {
     const emitV = (kind, payload, building = 'townhall') => run.emit(kind, { agentId: 'verifier', building, payload });
     const SOURCE_BUILDING = { nsp: 'nsp', mahadbt: 'mahadbt', buddy4study: 'foundations' };
+    emitHandoff(run, { from: 'mayor', to: 'verifier', summary: `${planNow().items.length} plan items to re-check`, count: planNow().items.length, what: 'plan items' });
     emitV('agent.working', { tool: 'fetch', target: 'none (mock run)', label: 'Re-check plan items' });
     verification = new Map();
     for (const item of planNow().items) {
@@ -207,6 +219,7 @@ export async function runFake(run, opts = {}) {
       emitV('verify.result', { opportunityId: item.opportunityId, title: item.title, ...r }, SOURCE_BUILDING[item.source] ?? 'opportunities');
     }
     emitV('agent.done', { findings: 0, durationMs: 0, verified: 0, changed: 0, unverified: verification.size });
+    emitHandoff(run, { from: 'verifier', to: 'mayor', summary: `0 re-checked, 0 changed, ${verification.size} not re-checked (mock)`, what: 'verifier results' });
   }
 
   const kitIds = new Map();

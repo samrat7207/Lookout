@@ -16,6 +16,7 @@ import { istToday } from './rank/ranker.js';
 import { createHistory, diffPlans, entryFromRun, HISTORY_FILE, summarize } from './history/history.js';
 import { rejudgePlan } from './rank/rejudge.js';
 import { openRepository } from './db/index.js';
+import { attachLibrarian } from './librarian.js';
 import { rowsFromEntry, unknownFields } from './db/fromRun.js';
 import { createLimiters, limitSettings } from './limits.js';
 import { allowedOrigins, cors, errorHandler, redact, requestLogger, schemas, securityHeaders, validate } from './security.js';
@@ -61,7 +62,7 @@ export const starters = {
     if (!hasApiKey()) return fallback('No TinyFish API key on the server');
     try {
       return await runLive(run, {
-        profile: { ...SAMPLE_STUDENT, ...body.profile },
+        profile: profileFromBody(body.profile),
         client: ctx.client,
         ...(ctx.cacheDir !== undefined && { cacheDir: ctx.cacheDir }),
         onLive: () => {
@@ -78,6 +79,17 @@ export const starters = {
   mock: (run) => replayInto(run, 'fake-run', { mode: 'mock' }),
   fake: (run, body) => runFake(run, { profile: { ...SAMPLE_STUDENT, ...body.profile }, pace: body.pace }),
 };
+
+// The profile form sends only the facts it asks for; blanks stay unknown (never filled
+// from the sample student). Anything else is the sample student plus edits.
+const COURSE_LABEL = { btech: 'B.Tech', 'other-ug': 'Other undergraduate degree', diploma: 'Diploma', pg: 'Postgraduate' };
+export function profileFromBody(p = {}) {
+  if (p?.source !== 'form') return { ...SAMPLE_STUDENT, ...p };
+  const out = { label: 'your profile' };
+  for (const k of ['state', 'category', 'course', 'year', 'gender', 'incomeBand']) if (p[k] !== undefined && p[k] !== '') out[k] = p[k];
+  if (out.course) out.courseLabel = COURSE_LABEL[out.course] ?? out.course;
+  return out;
+}
 
 const MAX_SPEED = 16;
 function parseSpeed(value) {
@@ -159,6 +171,19 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
       next(err);
     }
   });
+  // Delete a saved run: its database rows (and its profile if no other run uses it) and its
+  // history entry. Recordings of live runs are files on the server and are not touched.
+  app.delete('/api/runs/:runId', async (req, res, next) => {
+    try {
+      const repo = await repoReady;
+      const fromDb = repo ? await repo.runs.remove(req.params.runId) : false;
+      const fromHistory = history.remove(req.params.runId);
+      if (!fromDb && !fromHistory) return res.status(404).json({ error: 'no saved run with that id' });
+      res.json({ deleted: req.params.runId, database: fromDb, history: fromHistory });
+    } catch (err) {
+      next(err);
+    }
+  });
   app.get('/api/runs/:runId', async (req, res, next) => {
     try {
       const repo = await repoReady;
@@ -183,6 +208,8 @@ export function createApp({ record = true, client, cacheDir, historyFile = proce
     // live runs may fall back to a replay; they get controls then (GET .../control to read them)
     if (replaying || mode === 'live') run.control = createControl({ speed: parseSpeed(body.speed) ?? 1 });
     if (record && mode === 'fake') recordRun(run).catch((err) => console.error('recorder:', err.message));
+    // the Librarian reads the saved runs in every mode except the test-only fake run
+    if (mode !== 'fake') attachLibrarian(run, repoReady, { mode });
 
     lastRun = { runId: run.id, mode, startedAt: new Date().toISOString(), finishedAt: null, outcome: 'running' };
     const mine = lastRun;

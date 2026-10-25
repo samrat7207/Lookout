@@ -15,7 +15,7 @@ An isometric diorama: one city block grid on a flat grey base (48×48), shown as
           Scholarships                                 (3 small buildings)
 ```
 - **Roads:** centre lines at x, z = ±7 (inner grid) and ±21 (ring). Asphalt with dashed centre lines, crosswalk stripes at the intersections, and kerbed sidewalks around every block.
-- **No vehicles** (removed in Stage 2). **Citizens** walk instead: about 50 small pastel people (capsule body, sphere head) on the sidewalks. They cross the inner roads at the crosswalks, turn at block corners and pause now and then. They are decoration only and are drawn as two instanced meshes (`Citizens.jsx`).
+- **No vehicles and no citizens** (city v2, 2026-10-25): the only people are the agents, and every movement comes from an event. *(Before v2:* **Citizens** walked: about 50 small pastel people (capsule body, sphere head) on the sidewalks. They cross the inner roads at the crosswalks, turn at block corners and pause now and then. They are decoration only and are drawn as two instanced meshes (`Citizens.jsx`).
 - **Filler:** apartment blocks, shops with awnings, parks with trees, benches, lamp posts and a pond. Every building gets window grids and rooftop details (AC units, water tanks, solar panels, antennas, stair huts).
 - **Camera:** orthographic isometric view from `[1, 1, 1]`-ish. `OrbitControls` with polar limits (roughly 30° to 65°), zoom limits, and pan clamped to the base. The initial zoom fits the viewport.
 - **Lights:** a hemisphere light plus one warm directional sun with soft PCF shadows (2048 map) covering the base.
@@ -84,6 +84,13 @@ Bubble queue: when several `agent.found` events arrive close together, show each
 
 ## 5. Performance
 
-- The static city and the citizens are instanced. Each agent is one merged mesh plus a ring. About 60 draw calls including shadows.
+- The static city is instanced by material. Each agent is one merged mesh plus a ring. City v2 (5×5 blocks): 120 draw calls and 134k triangles with a finished run (`?stats`), about 2.2 ms median CPU per frame measured in the browser tab (GPU time not measured).
+
+## 6. City v2 (2026-10-25)
+- **5×5 blocks** with an outer ring road (base 76 m). The landmarks stay in the inner 3×3; agents use only the inner roads. Outer districts, each with its own look: offices (north, glass towers), campus (south, red-brick halls, a quad and a clock turret), homes (west, pastel houses with pitched roofs), market (east, awnings and a warehouse), parks with running tracks in the corners.
+- **Library** (west of Town Hall, replaces the homes block): a columned reading hall with a book-spine frieze. The **Librarian** (Libby) walks there on every run to read the saved runs. Clicking the Library or the Librarian opens History.
+- **Cafeteria** (the café terrace on the shops block): where `handoff` events happen. The giver and the receiver walk to facing seats, stand together for 1.6 s of run time, and a small parcel passes from one to the other; then each carries on to its target from the events.
+- **Town Hall assembly**: on `run.assembled` the agents gather in a half ring on the plaza facing the Mayor; the briefing card (`plan.split`) lists the sources, who goes where and the mode, and closes when the first agent sets off.
+- **Name tags** stack when they overlap; tags lifted two or more levels fade so a crowd stays readable.
 - `frameloop="always"` is fine.
 - Labels, name tags and bubbles are plain DOM, projected once per frame (no drei `<Html>`, which raced under React 19).

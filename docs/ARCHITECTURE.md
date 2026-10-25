@@ -57,8 +57,7 @@ HACKIIITD/
 │     │  ├─ buildCity.js      ground, roads, markings, crosswalks, filler blocks, street furniture, parking
 │     │  ├─ props.js          buildings with window grids + rooftop clutter, trees, lamps, benches, flowers
 │     │  ├─ landmarks.js      the 6 landmark designs (procedural)
-│     │  ├─ Citizens.jsx      S2: ambient sidewalk walkers (2 instanced meshes, decoration only)
-│     │  ├─ paths.js          S2: sidewalk graph (citizens) and road router (agents)
+│     │  ├─ paths.js          road router for the agents (places: Town Hall, assembly, Cafeteria, Library, sources)
 │     │  ├─ Agents.jsx        S2: agent characters, name tags, building progress rings
 │     │  ├─ Landmarks.jsx     hover/click hit boxes, highlight ring, DOM labels with status chips
 │     │  └─ Beacon.jsx        Watchtower beacon and beam

@@ -19,7 +19,9 @@ import { buildPlan, istToday } from './rank/ranker.js';
 import { buildKit } from './kit/buildKit.js';
 import { verifyItems } from './verify/verifier.js';
 import { buildCriteria } from './profile/profiler.js';
+import { notCheckedVerdict, profileSupport } from './profile/support.js';
 import { assessEvent, parseDevpost, parseHackerEarth } from './parse/opps.js';
+import { BRIEFING_MS, emitAssembly, emitHandoff } from './pipelineEvents.js';
 
 export const DEVPOST_FEED = 'https://devpost.com/api/hackathons?status[]=upcoming&status[]=open';
 export const HACKEREARTH_FEED = 'https://www.hackerearth.com/chrome-extension/events/';
@@ -113,8 +115,27 @@ export async function runLive(run, opts = {}) {
   // Profiler: profile -> criteria for the Judge, plus the facts we do not know
   const profiled = buildCriteria(profile);
   const criteria = profiled.criteria;
+  // the rules only cover the sample student's case; other profiles get "not checked"
+  const support = profileSupport(profile);
+  profiled.support = support;
+  const judgeName = (name, c) => (support.supported ? assessByName(name, c) : notCheckedVerdict(support));
+  const judgePage = (title, text, c) => (support.supported ? assessPageText(title, text, c) : notCheckedVerdict(support));
   run.emit('profile.ready', { agentId: 'profiler', building: 'townhall', payload: profiled });
   run.emit('agent.done', { agentId: 'profiler', building: 'townhall', payload: { findings: 0, durationMs: 0, unknown: profiled.unknown.length } });
+  // the criteria go to the Mayor, who runs the Judge for every scout's findings
+  emitHandoff(run, { from: 'profiler', to: 'mayor', summary: `criteria: ${profiled.known.length} known, ${profiled.unknown.length} unknown`, what: 'criteria' });
+
+  // everyone has gathered at Town Hall; the Mayor briefs them, then they set off
+  emitAssembly(run, agentIds, { mode: 'live', names: Object.fromEntries(agentIds.map((id) => [id, AGENTS[id].name])) });
+  const briefMs = opts.briefMs ?? Number(process.env.LOOKOUT_BRIEF_MS ?? BRIEFING_MS);
+  if (briefMs > 0) await new Promise((r) => setTimeout(r, briefMs));
+
+  const doneCounts = {};
+  /** A scout's findings pass to the Mayor (Judge and Ranker) once it is done. */
+  const scoutHandoff = (id) => {
+    const n = doneCounts[id] ?? 0;
+    emitHandoff(run, { from: id, to: 'mayor', summary: `${n} item${n === 1 ? '' : 's'} found`, count: n, what: 'findings' });
+  };
 
   const as = (agentId) => {
     const { building } = AGENTS[agentId];
@@ -124,6 +145,11 @@ export async function runLive(run, opts = {}) {
       work: (tool, target, label) => emit('agent.working', { tool, target, label }),
       progress: (text, tool) => emit('agent.progress', { text, ...(tool && { tool }) }),
       found: (opp) => {
+        // scholarships with a fixed rule (the MahaDBT OBC schemes) are not checked either
+        if (!support.supported && !opp.note && opp.kind === 'scholarship' && opp.fit !== 'unclear') {
+          const v = notCheckedVerdict(support);
+          Object.assign(opp, { fit: v.fit, why: v.reason, matchReason: v.reason, needsVerification: true });
+        }
         if (!opp.note) found.push(opp);
         emit('agent.found', opp);
       },
@@ -131,7 +157,10 @@ export async function runLive(run, opts = {}) {
         errors++;
         emit('agent.error', { tool, target, code: err.code ?? 'error', message: err.message ?? String(err), retrying, ...(err.requestId && { requestId: err.requestId }) });
       },
-      done: (n, t0) => emit('agent.done', { findings: n, durationMs: Date.now() - t0 }),
+      done: (n, t0) => {
+        doneCounts[agentId] = n;
+        emit('agent.done', { findings: n, durationMs: Date.now() - t0 });
+      },
       back: () => emit('agent.returning', { to: 'townhall' }),
     };
   };
@@ -214,7 +243,7 @@ export async function runLive(run, opts = {}) {
       const schemes = parseAllScholarships(list.text);
       const kept = [];
       for (const s of schemes) {
-        const fit = assessByName(s.name, criteria);
+        const fit = judgeName(s.name, criteria);
         // keep the fetched fields, so a re-judge with an edited profile can bring it back without guessing
         if (fit.fit === 'not_applicable') notApplicable.push({ title: s.name, reason: fit.reason, sourceUrl: NSP_ALL_SCHOLARSHIPS_URL, checkedAt: list.checkedAt, kind: 'scholarship', source: 'nsp', opportunityId: `nsp:${s.slug}`, deadline: s.applyTill, deadlineLabel: 'Student application closes', dateSource: s.applyTill ? 'parsed' : 'none', evidence: s.evidence });
         else kept.push([s, fit]);
@@ -273,7 +302,7 @@ export async function runLive(run, opts = {}) {
         dateSource: 'none',
       }));
     }
-    for (const s of recon.MAHADBT_SKIPPED) {
+    for (const s of support.supported ? recon.MAHADBT_SKIPPED : []) {
       notApplicable.push({ title: s.title, reason: `${s.reason[0].toUpperCase()}${s.reason.slice(1)} (rule read on 2026-10-24).`, sourceUrl: s.sourceUrl, checkedAt: recon.RECON_CHECKED_AT });
     }
     // MahaDBT 2.0 failed twice in recon; one honest try, no retries loop
@@ -309,7 +338,7 @@ export async function runLive(run, opts = {}) {
           notApplicable.push({ title, reason: `Closed: the last deadline on the page (${p.pastDeadline}) has passed.`, sourceUrl: url, checkedAt: page.checkedAt });
           continue;
         }
-        const fit = assessPageText(title, p.main, criteria);
+        const fit = judgePage(title, p.main, criteria);
         if (fit.fit === 'not_applicable') {
           notApplicable.push({ title, reason: fit.reason, sourceUrl: url, checkedAt: page.checkedAt });
           continue;
@@ -400,10 +429,10 @@ export async function runLive(run, opts = {}) {
   }
 
   await Promise.all([
-    nspScout().then(() => mayorPlan('plan.updated')),
-    mahadbtScout().then(() => mayorPlan('plan.updated')),
-    foundationsScout().then(() => mayorPlan('plan.updated')),
-    ...(opportunities ? [oppsScout().then(() => mayorPlan('plan.updated'))] : []),
+    nspScout().then(() => scoutHandoff('nsp-scout')).then(() => mayorPlan('plan.updated')),
+    mahadbtScout().then(() => scoutHandoff('mahadbt-scout')).then(() => mayorPlan('plan.updated')),
+    foundationsScout().then(() => scoutHandoff('foundations-scout')).then(() => mayorPlan('plan.updated')),
+    ...(opportunities ? [oppsScout().then(() => scoutHandoff('opps-scout')).then(() => mayorPlan('plan.updated'))] : []),
   ]);
 
   // Verifier: re-fetch every plan item's source (cache bypassed) and check name + deadline
@@ -411,6 +440,7 @@ export async function runLive(run, opts = {}) {
     const emitV = (kind, payload, building = 'townhall') => run.emit(kind, { agentId: 'verifier', building, payload });
     const items = planNow().items;
     const t0 = Date.now();
+    emitHandoff(run, { from: 'mayor', to: 'verifier', summary: `${items.length} plan items to re-check`, count: items.length, what: 'plan items' });
     emitV('agent.working', { tool: 'fetch', target: `${new Set(items.map((i) => i.sourceUrl)).size} source pages`, label: `Re-check ${items.length} plan items` });
     verification = await verifyItems(items, gk, {
       onResult: (item, r) => emitV('verify.result', { opportunityId: item.opportunityId, title: item.title, ...r }, SOURCE_BUILDING[item.source] ?? 'townhall'),
@@ -418,6 +448,7 @@ export async function runLive(run, opts = {}) {
     const tally = { verified: 0, changed: 0, unverified: 0 };
     for (const r of verification.values()) tally[r.status]++;
     emitV('agent.done', { findings: 0, durationMs: Date.now() - t0, ...tally });
+    emitHandoff(run, { from: 'verifier', to: 'mayor', summary: `${tally.verified} re-checked, ${tally.changed} changed, ${tally.unverified} not re-checked`, what: 'verifier results' });
   }
 
   const kitIds = new Map();

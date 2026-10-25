@@ -329,6 +329,47 @@ function Watchtower({ state, plan, result, setResult }) {
  * Full-screen plan over the city. `plan`, `kitsById` and `verification` default to the
  * live run's state; the History drawer and Re-run pass their own (with a `label`).
  */
+const nice = (d) => (d ? new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' }) : 'not published');
+
+/** Deletes this run's saved rows (profile included) and its history entry. */
+function DeleteRun({ runId }) {
+  const [st, setSt] = useState(null);
+  const del = async () => {
+    setSt('busy');
+    try {
+      const r = await fetch(`/api/runs/${encodeURIComponent(runId)}`, { method: 'DELETE' });
+      setSt(r.ok ? 'deleted' : r.status === 404 ? 'not saved' : `error ${r.status}`);
+    } catch (e) {
+      setSt(`error: ${e.message}`);
+    }
+  };
+  return (
+    <p className="sys__muted">
+      This run and its profile are saved on the server.{' '}
+      {st === 'deleted' ? <b>Deleted.</b> : <button type="button" className="btn" disabled={st === 'busy'} onClick={del}>🗑 Delete this run</button>}
+      {st && st !== 'deleted' && st !== 'busy' && ` (${st})`}
+    </p>
+  );
+}
+
+/** "Since your last run": the Librarian's comparison with the last saved run for this profile. */
+function SinceLastRun({ diff }) {
+  if (!diff) return null;
+  if (!diff.previous) return <section className="plan__since" aria-label="Since your last run"><h3>📚 Since your last run</h3><p className="plan__empty">{diff.note ?? 'No previous run for this profile.'}</p></section>;
+  const when = diff.previous.finishedAt ? new Date(diff.previous.finishedAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'an earlier run';
+  const none = !diff.newItems.length && !diff.closedItems.length && !diff.noLongerListed.length && !diff.deadlineChanged.length;
+  return (
+    <section className="plan__since" aria-label="Since your last run">
+      <h3>📚 Since your last run <span className="sys__muted">({diff.previous.mode}, {when}; from the saved runs)</span></h3>
+      {none && <p className="plan__empty">No changes: the same {diff.unchanged} items with the same deadlines.</p>}
+      {diff.newItems.length > 0 && <p><b>New ({diff.newItems.length}):</b> {diff.newItems.map((i) => `${i.title} (${nice(i.deadline)})`).join('; ')}</p>}
+      {diff.closedItems.length > 0 && <p><b>Closed ({diff.closedItems.length}):</b> {diff.closedItems.map((i) => `${i.title}${i.closedOn ? ` (closed ${nice(i.closedOn)})` : ''}`).join('; ')}</p>}
+      {diff.deadlineChanged.length > 0 && <p><b>Deadline changed ({diff.deadlineChanged.length}):</b> {diff.deadlineChanged.map((i) => `${i.title}: ${nice(i.from)} → ${nice(i.to)}`).join('; ')}</p>}
+      {diff.noLongerListed.length > 0 && <p><b>No longer listed ({diff.noLongerListed.length}):</b> {diff.noLongerListed.map((i) => i.title).join('; ')}</p>}
+    </section>
+  );
+}
+
 export function PlanScreen({ state, onClose, recheck, setRecheck, view = null, onRerun, rerunState }) {
   const [kit, setKit] = useState(null);
   const [tab, setTab] = useState('scholarship');
@@ -401,6 +442,14 @@ export function PlanScreen({ state, onClose, recheck, setRecheck, view = null, o
         <ProfileBox profile={plan.profile ?? state.profile} onRerun={onRerun} rerunState={rerunState} />
         {!view?.historical && <Watchtower state={state} plan={plan} result={recheck} setResult={setRecheck} />}
         <Timeline items={plan.items} today={plan.today} />
+        {plan.profile?.support && !plan.profile.support.supported && (
+          <p className="pform__warn" role="note">
+            Prototype: matches the schemes we cover. Results for other profiles may be incomplete. This profile is not covered by our rules
+            ({plan.profile.support.reasons.join('; ')}), so every scholarship is shown as "not checked": open each official guideline.
+          </p>
+        )}
+        {!view && <SinceLastRun diff={state.sinceLastRun} />}
+        {!view && state.status === 'complete' && <DeleteRun runId={state.runId} />}
         {tab === 'scholarship' && <Conflicts conflicts={plan.conflicts} />}
         <div className="plan__filters" role="search">
           <input type="search" placeholder="Search by name" aria-label="Search by name" value={f.q} onChange={(e) => setF((x) => ({ ...x, q: e.target.value }))} />

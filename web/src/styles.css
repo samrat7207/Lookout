@@ -639,3 +639,18 @@ body {
 .hist__items th, .hist__items td { text-align: left; padding: 3px 6px; border-bottom: 1px solid rgba(127,127,127,.2); vertical-align: top; }
 .hist__saved .hist__row { display: flex; flex-wrap: wrap; gap: 4px 10px; }
 .hist__saved .hist__row .btn { margin-left: auto; }
+
+/* the Mayor's briefing card (plan.split) */
+.brief { position: fixed; top: 84px; left: 50%; transform: translateX(-50%); z-index: 30; max-width: min(520px, calc(100vw - 32px)); background: rgba(255, 255, 255, 0.95); color: #1f2a37; border-radius: 12px; padding: 10px 14px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18); font-size: 13px; pointer-events: none; }
+.brief h3 { margin: 0 0 4px; font-size: 14px; }
+.brief ul { margin: 4px 0; padding-left: 18px; }
+/* "Since your last run" on the plan */
+.plan__since { margin: 10px 0; padding: 8px 12px; border: 1px solid #dbe2ea; border-radius: 10px; background: #f7fafc; }
+.plan__since h3 { margin: 0 0 4px; font-size: 14px; }
+.plan__since p { margin: 3px 0; font-size: 13px; }
+
+/* the profile form */
+.pform { position: fixed; top: 70px; right: 16px; z-index: 46; width: min(380px, calc(100vw - 32px)); max-height: calc(100vh - 90px); overflow: auto; background: #fff; color: #1f2a37; border-radius: 12px; padding: 12px 14px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.2); font-size: 13px; }
+.pform form { display: grid; gap: 6px; }
+.pform label { display: grid; gap: 2px; font-weight: 600; }
+.pform__warn { background: #fff4d6; border: 1px solid #f0c75e; color: #6b4500; border-radius: 8px; padding: 6px 8px; font-size: 12.5px; }

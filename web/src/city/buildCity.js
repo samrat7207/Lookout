@@ -1,5 +1,6 @@
-// Builds the whole static city into one batch (deterministic). There are no vehicles:
-// the streets belong to the citizens and the agents.
+// Builds the whole static city into one batch (deterministic). There are no vehicles and
+// no ambient people: the only people are the agents, and they move only on events.
+// Everything here is instanced by material, so a bigger city costs triangles, not draw calls.
 
 import { createBatch, rng } from './batch.js';
 import {
@@ -23,6 +24,16 @@ const LOT = {
   '0,14': '#9fd38a', // park
   '14,14': '#e6ddf0', // opportunities plaza
 };
+// outer districts: offices (north), campus (south), homes (west), market (east), parks (corners)
+function districtOf(bx, bz) {
+  if (Math.abs(bx) === 28 && Math.abs(bz) === 28) return 'park';
+  if (bz === -28) return 'offices';
+  if (bz === 28) return 'campus';
+  if (bx === -28) return 'homes';
+  if (bx === 28) return 'market';
+  return null;
+}
+const DISTRICT_LOT = { offices: '#d5dbe3', campus: '#b7dc9f', homes: '#c9e4b4', market: '#eadfcf', park: '#9fd38a' };
 
 function ground(b) {
   b.box(0, -0.5, 0, BASE, 0.5, BASE, '#d3d7dd');
@@ -31,7 +42,7 @@ function ground(b) {
   for (const bx of BLOCK_CENTERS) {
     for (const bz of BLOCK_CENTERS) {
       b.box(bx, 0, bz, BLOCK, KERB_H, BLOCK, '#e6e8ec');
-      b.flat(bx, KERB_H, bz, BLOCK - 1.2, G - KERB_H, BLOCK - 1.2, LOT[`${bx},${bz}`]);
+      b.flat(bx, KERB_H, bz, BLOCK - 1.2, G - KERB_H, BLOCK - 1.2, LOT[`${bx},${bz}`] ?? DISTRICT_LOT[districtOf(bx, bz)]);
     }
   }
 }
@@ -118,17 +129,27 @@ function stalls(b, r) {
   }
 }
 
-/** Homes block: four apartment buildings with balconies around a courtyard. */
-function homes(b, r) {
-  const cx = -14, cz = 0;
-  building(b, r, { x: cx - 2.5, z: cz - 2.5, w: 3.2, d: 3.0, floors: 6, color: '#f7c59f', balconies: true });
-  building(b, r, { x: cx + 2.5, z: cz - 2.6, w: 3.0, d: 2.8, floors: 4, color: '#9ad1d4', balconies: true });
-  building(b, r, { x: cx - 2.6, z: cz + 2.6, w: 3.0, d: 2.8, floors: 3, color: '#f4a6a6', balconies: true });
-  building(b, r, { x: cx + 2.5, z: cz + 2.5, w: 3.2, d: 2.8, floors: 5, color: '#c3b1e1', balconies: true });
-  b.flat(cx, G, cz, 1.0, 0.02, 9.0, '#e8dfcc');
-  b.flat(cx, G, cz, 9.0, 0.02, 1.0, '#e8dfcc');
-  tree(b, r, cx + 0.9, cz - 0.9, 0.7, 'round');
-  bench(b, cx - 0.9, cz + 0.9, PI / 2);
+/** Library block: a reading hall with columns and a book-spine frieze, plus two homes behind. */
+function library(b, r) {
+  const cx = -14.6, cz = -0.4;
+  // plinth, hall, columns, roof
+  b.box(cx, G, cz, 7.4, 0.3, 5.2, '#d8cfbd');
+  b.box(cx, G + 0.3, cz - 0.4, 6.6, 3.2, 3.8, '#e9dcc0');
+  for (let i = 0; i < 6; i++) b.cyl(cx - 2.75 + i * 1.1, G + 0.3, cz + 1.9, 0.2, 2.9, '#fbf6ea');
+  b.box(cx, G + 3.2, cz + 1.9, 6.9, 0.3, 0.7, '#fbf6ea');
+  b.box(cx, G + 3.5, cz - 0.1, 7.0, 0.35, 4.6, '#7a4e2d');
+  b.tilted(cx, G + 3.85, cz - 0.1, 7.0, 0.1, 4.6, '#8c5a33', 0);
+  // book spines along the frieze
+  const spines = ['#e15759', '#4e79a7', '#59a14f', '#f28e2b', '#b07aa1', '#edc948'];
+  for (let i = 0; i < 22; i++) b.box(cx - 3.15 + i * 0.3, G + 3.25, cz + 2.27, 0.22, 0.24 + r() * 0.1, 0.05, spines[i % spines.length]);
+  // tall windows and a door
+  for (let i = 0; i < 4; i++) b.glass(cx - 2.4 + i * 1.6, G + 1.0, cz + 1.51, 0.7, 1.6, 0.05, '#cfe3f2');
+  b.box(cx, G + 0.3, cz + 1.53, 1.0, 1.8, 0.06, '#5b3a21');
+  b.flat(cx + 4.0, G, cz + 1.0, 1.2, 0.02, 3.0, '#e8dfcc');
+  building(b, r, { x: -14 - 2.6, z: 3.4, w: 3.0, d: 2.2, floors: 3, color: '#f4a6a6', balconies: true });
+  building(b, r, { x: -14 + 2.4, z: 3.5, w: 3.0, d: 2.0, floors: 2, color: '#c3b1e1', balconies: true });
+  tree(b, r, -18.6, 4.0, 0.7, 'round');
+  bench(b, -10.4, -3.4, PI / 2);
 }
 
 /** Shops block: three shopfronts with striped awnings, an office tower and a cafe terrace. */
@@ -195,6 +216,72 @@ function plazaPaving(b) {
   }
 }
 
+/** Offices: glass-and-steel towers in cool greys and blues. */
+function offices(b, r, cx, cz) {
+  const blues = ['#8fb3d9', '#a7b8c9', '#7f9db9', '#b8c4d0'];
+  building(b, r, { x: cx - 2.4, z: cz - 2.2, w: 3.6, d: 3.4, floors: 7 + Math.floor(r() * 4), color: r.pick(blues) });
+  building(b, r, { x: cx + 2.5, z: cz - 2.0, w: 3.2, d: 3.6, floors: 5 + Math.floor(r() * 4), color: r.pick(blues) });
+  building(b, r, { x: cx + 0.2, z: cz + 2.6, w: 6.4, d: 2.6, floors: 3, color: '#c7ced6' });
+  b.flat(cx, G, cz + 0.6, 9.0, 0.02, 1.0, '#e2e5ea');
+}
+
+/** Campus: red-brick halls around a green quad with a clock turret. */
+function campus(b, r, cx, cz) {
+  building(b, r, { x: cx - 2.6, z: cz - 2.4, w: 3.4, d: 3.0, floors: 3, color: '#c0674f' });
+  building(b, r, { x: cx + 2.6, z: cz - 2.4, w: 3.4, d: 3.0, floors: 4, color: '#b35a44' });
+  b.box(cx, G, cz - 3.2, 1.4, 4.6, 1.4, '#a24f3b');
+  b.cone(cx, G + 4.6, cz - 3.2, 1.7, 1.2, '#4b5d67');
+  b.flat(cx, G, cz + 1.6, 8.4, 0.02, 4.4, '#8fcf7a');
+  b.flat(cx, G + 0.02, cz + 1.6, 0.8, 0.02, 4.4, '#e8dfcc');
+  tree(b, r, cx - 3.0, cz + 2.6, 0.75, 'round');
+  tree(b, r, cx + 3.0, cz + 2.6, 0.75, 'round');
+  bench(b, cx - 1.4, cz + 0.6);
+}
+
+/** Homes: small pastel houses with pitched roofs and gardens. */
+function homesDistrict(b, r, cx, cz) {
+  const pastel = ['#f7c59f', '#9ad1d4', '#f4a6a6', '#c3b1e1', '#fbe7a1'];
+  for (const [dx, dz] of [[-2.5, -2.5], [2.5, -2.5], [-2.5, 2.5], [2.5, 2.5]]) {
+    const x = cx + dx, z = cz + dz;
+    b.box(x, G, z, 2.6, 1.8, 2.4, r.pick(pastel));
+    b.tilted(x, G + 1.95, z - 0.55, 2.8, 0.12, 1.4, '#9c4f3d', 0.55);
+    b.tilted(x, G + 1.95, z + 0.55, 2.8, 0.12, 1.4, '#9c4f3d', -0.55);
+    b.box(x, G, z + 1.21, 0.5, 1.0, 0.04, '#6b4a2f');
+  }
+  tree(b, r, cx, cz, 0.8, 'round');
+  hedge(b, cx, cz + 0.1, 0.4, 3.0);
+}
+
+/** Market: low halls with striped awnings and a warehouse. */
+function market(b, r, cx, cz) {
+  const awnings = [['#e15759', '#ffffff'], ['#2a9d8f', '#ffffff'], ['#f28e2b', '#ffffff']];
+  for (let i = 0; i < 3; i++) {
+    const x = cx - 3.0 + i * 3.0, z = cz + 2.4;
+    building(b, r, { x, z, w: 2.7, d: 2.4, floors: 1, color: r.pick(['#ffd6a5', '#caffbf', '#ffc6ff']), trim: false });
+    for (let k = 0; k < 5; k++) b.tilted(x - 1.0 + k * 0.5, G + 0.95, z + 1.45, 0.5, 0.05, 0.7, awnings[i][k % 2], 0.45);
+  }
+  b.box(cx, G, cz - 2.4, 8.0, 2.6, 4.0, '#9aa5b1');
+  b.tilted(cx, G + 2.6, cz - 2.4, 8.2, 0.12, 4.2, '#6c7a89', 0.08);
+}
+
+/** Corner parks: lawns, a running track ring and trees. */
+function cornerPark(b, r, cx, cz) {
+  b.disc(cx, G, cz, 8.0, 0.02, 8.0, '#c97b55');
+  b.disc(cx, G + 0.02, cz, 6.6, 0.02, 6.6, '#7cc46a');
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * PI * 2;
+    tree(b, r, cx + Math.cos(a) * 4.7, cz + Math.sin(a) * 4.7, 0.7, i % 2 ? 'pine' : 'round');
+  }
+}
+
+function outerDistricts(b, r) {
+  const make = { offices, campus, homes: homesDistrict, market, park: cornerPark };
+  for (const bx of BLOCK_CENTERS) for (const bz of BLOCK_CENTERS) {
+    const d = districtOf(bx, bz);
+    if (d) make[d](b, r, bx, bz);
+  }
+}
+
 export function buildCity() {
   BENCH_SPOTS.length = 0; // filled by bench() below
   LAMP_SPOTS.length = 0; // filled by lamp() below
@@ -208,9 +295,10 @@ export function buildCity() {
   watchtower(b, r);
   townHall(b, r);
   opportunitiesDistrict(b, r);
-  homes(b, r);
+  library(b, r);
   shops(b, r);
   park(b, r);
+  outerDistricts(b, r);
   streetFurniture(b, r);
   busStop(b);
   plazaPaving(b);

@@ -1,6 +1,8 @@
 // MOCK MODE: plays a recorded JSONL run into a new run, keeping the original
 // timing (scaled by speed, each gap capped) and marking events replay: true.
 
+import { upgradeLegacy } from './pipelineEvents.js';
+import { isLibrarianEvent } from './librarian.js';
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { RECORDINGS_DIR } from './recorder.js';
@@ -34,7 +36,9 @@ export function createControl({ speed = 1, paused = false } = {}) {
  *   control is read every tick, so pausing or changing speed takes effect within about 50 ms
  */
 export async function replayRecording(run, file, { speed = 1, maxGapMs = MAX_GAP_MS, control = createControl({ speed }) } = {}) {
-  const events = await readRecording(file);
+  // older recordings get the assembly and handoff events rebuilt from their own events
+  // the Librarian runs live against the database on every replay, so its recorded events are skipped
+  const events = upgradeLegacy((await readRecording(file)).filter((e) => !isLibrarianEvent(e)));
   let prevT = events[0]?.t ?? 0;
   let clock = prevT; // recording time played so far (gaps capped)
   for (const evt of events) {

@@ -73,6 +73,26 @@ function tables(q) {
     async get(id) {
       return runRow((await q('SELECT * FROM runs WHERE id = $1', [id]))[0]) ?? null;
     },
+    /** Deletes a run, its plan items, and its profile when no other run uses it. */
+    async remove(id) {
+      const run0 = runRow((await q('SELECT * FROM runs WHERE id = $1', [id]))[0]);
+      if (!run0) return false;
+      await q('DELETE FROM plan_items WHERE run_id = $1', [id]);
+      await q('DELETE FROM runs WHERE id = $1', [id]);
+      if (run0.profileId) await q('DELETE FROM profiles WHERE id = $1 AND NOT EXISTS (SELECT 1 FROM runs WHERE profile_id = $1)', [run0.profileId]);
+      return true;
+    },
+    /** The newest completed run whose profile has the same state, category, course and year. */
+    async lastCompletedFor(p, modes = ['live', 'replay']) {
+      const rows = await q(
+        `SELECT r.* FROM runs r JOIN profiles p ON p.id = r.profile_id
+         WHERE r.status = 'complete' AND r.mode IN ($1, $2)
+           AND COALESCE(p.state, '') = $3 AND COALESCE(p.category, '') = $4 AND COALESCE(p.course, '') = $5 AND COALESCE(p.year, -1) = $6
+         ORDER BY r.finished_at DESC, r.id DESC LIMIT 1`,
+        [modes[0], modes[1] ?? modes[0], p.state ?? '', p.category ?? '', p.course ?? '', Number.isInteger(p.year) ? p.year : -1],
+      );
+      return runRow(rows[0]) ?? null;
+    },
     async list({ limit = 20 } = {}) {
       const n = Math.max(1, Math.min(100, Number(limit) || 20));
       const rows = await q(

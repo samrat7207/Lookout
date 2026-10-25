@@ -78,7 +78,7 @@ Watchtower: on "Re-check now" only ─▶ Gatekeeper ─▶ re-read dates ─▶
 - No Vidyasaarathi, Unstop, Hack2skill, Devfolio or MLH in the live run (reasons are listed in the plan).
 - MahaDBT 2.0 is unreachable through the proxy, so MahaDBT deadlines are "not published".
 - Eligibility is keyword and rule based, so it can be wrong at the edges (hence "Rule awaiting review").
-- Live runs stream from one process's memory (kept for an hour). Completed runs are saved to Postgres when `DATABASE_URL` is set, else to a local SQLite fallback ([BACKEND_AND_SECURITY.md](BACKEND_AND_SECURITY.md)). Not tested against a real Postgres server yet.
+- Live runs stream from one process's memory (kept for an hour). Completed runs are saved to Postgres when `DATABASE_URL` is set, else to a local SQLite fallback ([BACKEND_AND_SECURITY.md](BACKEND_AND_SECURITY.md)). Verified against a real Postgres server on 2026-10-25 (city-v2 end-to-end runs).
 - No CDN, load balancer or TEE (planned, see BACKEND_AND_SECURITY.md).
 - One sample profile drives the demo (no profile form yet).
 - Outcome measurement (did a student apply or win) would be self-reported; we have none yet.

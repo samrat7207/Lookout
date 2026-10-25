@@ -31,7 +31,7 @@ What the server does today to store runs, protect itself and stay polite to the 
   - Postgres failing mid-use;
   - the API with an unreachable database.
 
-  A test against a real Postgres server runs only when `TEST_DATABASE_URL` is set. **It has not been run against a real Postgres server yet.**
+  A test against a real Postgres server runs only when `TEST_DATABASE_URL` is set. The live app has been run against a real Postgres server (2026-10-25, Live, Replay and Mock saved and read back); the automated test against one still needs `TEST_DATABASE_URL`.
 
 ### Security layer (`server/src/security.js`)
 - **Headers:** `helmet` with a strict Content-Security-Policy for the API (`default-src 'none'`), `nosniff`, no `X-Powered-By`.

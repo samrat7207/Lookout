@@ -13,12 +13,13 @@ Built in 6 stages ([docs/MILESTONES.md](docs/MILESTONES.md)).
 
 | Stage | State |
 |---|---|
-| 1 City | ✅ done, upgraded: humanoid citizens with walk cycles, uniformed agents with props, signs, bus stop, stalls, haze, day-to-dusk cycle, click to zoom |
+| 1 City | ✅ done, upgraded (citizens removed in city v2: only agents are people), uniformed agents with props, signs, bus stop, stalls, haze, day-to-dusk cycle, click to zoom |
 | 2 Event-driven characters | ✅ done |
 | 3 Real data | ✅ **thin slice**: TinyFish Search + Fetch only, on NSP, MahaDBT 1.0, Buddy4Study, and the Devpost and HackerEarth feeds. Every call goes through the **Gatekeeper** (cache, rate limits, robots.txt, block handling). A **Profiler** feeds the rules, and a **Verifier** re-checks every plan item. Recorded to `recordings/real-run.jsonl` |
 | 4 Plan screen and Application Kit | ✅ done: conflicts panel, ranked list, read-only kits, "Not applicable" reasons, sources footer, `?demo` |
 | 5 Opportunities and Watchtower | ✅ **slim**: hackathons and events from the Devpost and HackerEarth feeds, with their own plan tab; Watchtower "Re-check now" (on request only, no schedules) |
 | UI polish (Part B) | ✅ run history with compare, deadline timeline, print and `.ics` export (fetched dates only), filters and search, editable profile with a Judge and Ranker re-run, guided captions (`?guided`), Day / Dusk / Cycle theme with a filmic colour grade |
+| City v2 | ✅ every movement comes from an event: Town Hall assembly and briefing card (`run.assembled`, `plan.split`), handoffs at the new Cafeteria (`handoff`, emitted where data really passes), the Library and Librarian (last run for this profile, "Since your last run" on the plan), a 5×5 city with four districts; a prototype profile form for Live runs (profiles outside Maharashtra / OBC / B.Tech / 2nd year are shown as "not checked") |
 | Backend layer | ✅ runs saved to Postgres (`DATABASE_URL`) or a local SQLite fallback, automatic fallback shown in `/api/health`; helmet, CORS allowlist, zod validation, safe errors and logs; inbound rate limits (429 + `Retry-After`). CDN, load balancer and TEE are **planned, not built** ([docs/BACKEND_AND_SECURITY.md](docs/BACKEND_AND_SECURITY.md)) |
 | 6 Polish and rehearsal | partly: LIVE / REPLAY / MOCK with an automatic fallback, a System view (`?tech`), and the API documented in [docs/API.md](docs/API.md) |
 
